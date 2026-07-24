@@ -1,0 +1,19 @@
+{
+  "repository": "Typer",
+  "question_count": 40,
+  "configuration": {
+    "chunk_window_lines": 10,
+    "chunk_overlap_lines": 0,
+    "semantic_candidates": 100,
+    "default_top_k": 8
+  },
+  "metrics": {
+    "useful_hit_at_6": 0.9,
+    "primary_hit_at_6": 0.6,
+    "recall_at_6": 0.5208,
+    "useful_hit_at_8": 0.9,
+    "primary_hit_at_8": 0.6,
+    "recall_at_8": 0.5583,
+    "mrr_at_8": 0.66
+  }
+}

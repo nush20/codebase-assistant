@@ -1,0 +1,195 @@
+{
+  "name": "Requests codebase evaluation",
+  "repository": "/path/to/requests",
+  "notes": "Ground truth validated against the checked-out src/requests layout and method-level qualified symbols.",
+  "questions": [
+    {
+      "id": "requests-001", "category": "networking",
+      "question": "How does Requests actually communicate with the network?",
+      "expected_sources": [{"file_path": "src/requests/adapters.py", "symbol": "HTTPAdapter.send"}],
+      "accepted_sources": [{"file_path": "src/requests/adapters.py", "symbol": "HTTPAdapter"}],
+      "important_facts": ["HTTPAdapter.send delegates the prepared request to urllib3 and builds the response."]
+    },
+    {
+      "id": "requests-002", "category": "request_flow",
+      "question": "Which code is responsible for sending an HTTP request?",
+      "expected_sources": [
+        {"file_path": "src/requests/sessions.py", "symbol": "Session.send"},
+        {"file_path": "src/requests/adapters.py", "symbol": "HTTPAdapter.send"}
+      ],
+      "important_facts": ["Session.send selects an adapter.", "HTTPAdapter.send performs transport through urllib3."]
+    },
+    {
+      "id": "requests-003", "category": "request_preparation",
+      "question": "How does Requests convert a URL and parameters into a final HTTP request?",
+      "expected_sources": [{"file_path": "src/requests/models.py", "symbol": "PreparedRequest.prepare"}],
+      "accepted_sources": [{"file_path": "src/requests/models.py", "symbol": "PreparedRequest.prepare_url"}],
+      "important_facts": ["PreparedRequest.prepare coordinates URL, headers, body, authentication, cookies, and hooks."]
+    },
+    {
+      "id": "requests-004", "category": "connection_pooling",
+      "question": "Where is connection pooling implemented?",
+      "expected_sources": [{"file_path": "src/requests/adapters.py", "symbol": "HTTPAdapter"}],
+      "accepted_sources": [{"file_path": "src/requests/adapters.py", "symbol": "HTTPAdapter.init_poolmanager"}],
+      "important_facts": ["HTTPAdapter owns and initializes the urllib3 PoolManager."]
+    },
+    {
+      "id": "requests-005", "category": "cookies",
+      "question": "How does Requests keep cookies across multiple requests?",
+      "expected_sources": [
+        {"file_path": "src/requests/sessions.py", "symbol": "Session"},
+        {"file_path": "src/requests/cookies.py", "symbol": "RequestsCookieJar"}
+      ],
+      "important_facts": ["Session retains a cookie jar across requests."]
+    },
+    {
+      "id": "requests-006", "category": "redirects",
+      "question": "How does Requests follow redirects automatically?",
+      "expected_sources": [{"file_path": "src/requests/sessions.py", "symbol": "SessionRedirectMixin.resolve_redirects"}],
+      "important_facts": ["resolve_redirects follows response locations and yields redirect responses."]
+    },
+    {
+      "id": "requests-007", "category": "authentication",
+      "question": "How are authentication credentials attached to requests?",
+      "expected_sources": [
+        {"file_path": "src/requests/auth.py", "symbol": "HTTPBasicAuth"},
+        {"file_path": "src/requests/auth.py", "symbol": "HTTPDigestAuth"}
+      ],
+      "important_facts": ["Authentication handlers modify PreparedRequest objects through __call__ methods."]
+    },
+    {
+      "id": "requests-008", "category": "request_flow",
+      "question": "Which classes are involved when I call `requests.get()`?",
+      "expected_sources": [
+        {"file_path": "src/requests/api.py", "symbol": "get"},
+        {"file_path": "src/requests/sessions.py", "symbol": "Session"},
+        {"file_path": "src/requests/models.py", "symbol": "PreparedRequest"},
+        {"file_path": "src/requests/adapters.py", "symbol": "HTTPAdapter"}
+      ],
+      "important_facts": ["The API helper creates a Session, prepares a request, and sends it through an adapter."]
+    },
+    {
+      "id": "requests-009", "category": "symbol_lookup",
+      "question": "Where is `requests.get()` implemented?",
+      "expected_sources": [{"file_path": "src/requests/api.py", "symbol": "get"}],
+      "important_facts": ["The public get helper is implemented in src/requests/api.py."]
+    },
+    {
+      "id": "requests-010", "category": "api_flow",
+      "question": "How does `requests.post()` work internally?",
+      "expected_sources": [{"file_path": "src/requests/api.py", "symbol": "post"}],
+      "accepted_sources": [{"file_path": "src/requests/api.py", "symbol": "request"}],
+      "important_facts": ["post delegates to request with the POST method."]
+    },
+    {
+      "id": "requests-011", "category": "symbol_lookup",
+      "question": "Where is the `Session` class implemented?",
+      "expected_sources": [{"file_path": "src/requests/sessions.py", "symbol": "Session"}],
+      "important_facts": ["Session is implemented in src/requests/sessions.py."]
+    },
+    {
+      "id": "requests-012", "category": "class_explanation",
+      "question": "Explain the `Session` class.",
+      "expected_sources": [{"file_path": "src/requests/sessions.py", "symbol": "Session"}],
+      "important_facts": ["Session persists configuration, cookies, adapters, authentication, and other request settings."]
+    },
+    {
+      "id": "requests-013", "category": "method_explanation",
+      "question": "How does `Session.request()` work?",
+      "expected_sources": [{"file_path": "src/requests/sessions.py", "symbol": "Session.request"}],
+      "important_facts": ["Session.request constructs, prepares, configures, and sends a request."]
+    },
+    {
+      "id": "requests-014", "category": "request_flow",
+      "question": "Where are HTTP requests actually sent?",
+      "expected_sources": [{"file_path": "src/requests/sessions.py", "symbol": "Session.send"}],
+      "accepted_sources": [{"file_path": "src/requests/adapters.py", "symbol": "HTTPAdapter.send"}],
+      "important_facts": ["Session.send dispatches through the selected adapter."]
+    },
+    {
+      "id": "requests-015", "category": "method_explanation",
+      "question": "Explain the `Session.send()` function.",
+      "expected_sources": [{"file_path": "src/requests/sessions.py", "symbol": "Session.send"}],
+      "important_facts": ["Session.send applies defaults, selects an adapter, sends, handles hooks, cookies, redirects, and streaming."]
+    },
+    {
+      "id": "requests-016", "category": "request_preparation",
+      "question": "How does Requests prepare an HTTP request before sending it?",
+      "expected_sources": [{"file_path": "src/requests/models.py", "symbol": "PreparedRequest.prepare"}],
+      "important_facts": ["PreparedRequest.prepare coordinates all request preparation stages."]
+    },
+    {
+      "id": "requests-017", "category": "class_explanation",
+      "question": "Explain the `PreparedRequest` class.",
+      "expected_sources": [{"file_path": "src/requests/models.py", "symbol": "PreparedRequest"}],
+      "important_facts": ["PreparedRequest represents the mutable bytes-ready request sent to the server."]
+    },
+    {
+      "id": "requests-018", "category": "headers",
+      "question": "Where are request headers prepared?",
+      "expected_sources": [{"file_path": "src/requests/models.py", "symbol": "PreparedRequest.prepare_headers"}],
+      "important_facts": ["prepare_headers validates and stores headers."]
+    },
+    {
+      "id": "requests-019", "category": "url_encoding",
+      "question": "How are query parameters encoded?",
+      "expected_sources": [{"file_path": "src/requests/models.py", "symbol": "PreparedRequest.prepare_url"}],
+      "important_facts": ["prepare_url encodes parameters and reconstructs the final URL."]
+    },
+    {
+      "id": "requests-020", "category": "authentication",
+      "question": "Where is Basic Authentication implemented?",
+      "expected_sources": [{"file_path": "src/requests/auth.py", "symbol": "HTTPBasicAuth"}],
+      "important_facts": ["HTTPBasicAuth adds an Authorization header."]
+    },
+    {
+      "id": "requests-021", "category": "authentication",
+      "question": "How does Requests support Digest Authentication?",
+      "expected_sources": [{"file_path": "src/requests/auth.py", "symbol": "HTTPDigestAuth"}],
+      "important_facts": ["HTTPDigestAuth builds digest headers and handles 401 challenges."]
+    },
+    {
+      "id": "requests-022", "category": "cookies",
+      "question": "Where are cookies managed?",
+      "expected_sources": [{"file_path": "src/requests/cookies.py", "symbol": "RequestsCookieJar"}],
+      "important_facts": ["RequestsCookieJar supplies the Requests-compatible cookie container."]
+    },
+    {
+      "id": "requests-023", "category": "file_discovery",
+      "question": "Where are exceptions defined?",
+      "expected_sources": [{"file_path": "src/requests/exceptions.py"}],
+      "important_facts": ["Requests exception classes are defined in src/requests/exceptions.py."]
+    },
+    {
+      "id": "requests-024", "category": "symbol_lookup",
+      "question": "Where is the HTTP adapter implemented?",
+      "expected_sources": [{"file_path": "src/requests/adapters.py", "symbol": "HTTPAdapter"}],
+      "important_facts": ["HTTPAdapter is implemented in src/requests/adapters.py."]
+    },
+    {
+      "id": "requests-025", "category": "class_explanation",
+      "question": "Explain the `HTTPAdapter` class.",
+      "expected_sources": [{"file_path": "src/requests/adapters.py", "symbol": "HTTPAdapter"}],
+      "important_facts": ["HTTPAdapter bridges Requests sessions to urllib3 transport and pooling."]
+    },
+    {
+      "id": "requests-026", "category": "networking",
+      "question": "How does Requests use urllib3 to send requests?",
+      "expected_sources": [{"file_path": "src/requests/adapters.py", "symbol": "HTTPAdapter.send"}],
+      "important_facts": ["HTTPAdapter.send obtains a connection and calls urllib3 urlopen."]
+    },
+    {
+      "id": "requests-027", "category": "redirects",
+      "question": "How are redirects handled?",
+      "expected_sources": [{"file_path": "src/requests/sessions.py", "symbol": "SessionRedirectMixin.resolve_redirects"}],
+      "important_facts": ["resolve_redirects rebuilds and follows redirected requests."]
+    },
+    {
+      "id": "requests-028", "category": "tls",
+      "question": "Where is SSL certificate verification handled?",
+      "expected_sources": [{"file_path": "src/requests/adapters.py", "symbol": "HTTPAdapter.cert_verify"}],
+      "accepted_sources": [{"file_path": "src/requests/adapters.py", "symbol": "HTTPAdapter.send"}],
+      "important_facts": ["cert_verify configures certificate and CA verification before transport."]
+    }
+  ]
+}

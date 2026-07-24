@@ -1,0 +1,251 @@
+{
+  "name": "Flask codebase retrieval evaluation",
+  "repository_revision": "36e4a824f340fdee7ed50937ba8e7f6bc7d17f81",
+  "notes": "Ground truth supplied by the user. flask-004 intentionally preserves the historical RequestContext expectation, although Flask 3.2 merged it into AppContext.",
+  "questions": [
+    {
+      "id": "flask-001",
+      "category": "symbol_lookup",
+      "question": "Where is the main `Flask` application class defined?",
+      "expected_sources": [{"file_path": "src/flask/app.py", "symbol": "Flask"}]
+    },
+    {
+      "id": "flask-002",
+      "category": "symbol_lookup",
+      "question": "Where is the `Blueprint` class implemented?",
+      "expected_sources": [{"file_path": "src/flask/blueprints.py", "symbol": "Blueprint"}]
+    },
+    {
+      "id": "flask-003",
+      "category": "symbol_lookup",
+      "question": "Where are `request`, `session`, `current_app`, and `g` defined?",
+      "expected_sources": [{"file_path": "src/flask/globals.py"}]
+    },
+    {
+      "id": "flask-004",
+      "category": "symbol_lookup",
+      "question": "Where is `RequestContext` implemented?",
+      "expected_sources": [{"file_path": "src/flask/ctx.py", "symbol": "RequestContext"}]
+    },
+    {
+      "id": "flask-005",
+      "category": "symbol_lookup",
+      "question": "Where is `AppContext` implemented?",
+      "expected_sources": [{"file_path": "src/flask/ctx.py", "symbol": "AppContext"}]
+    },
+    {
+      "id": "flask-006",
+      "category": "symbol_lookup",
+      "question": "Where is Flask's default session implementation defined?",
+      "expected_sources": [
+        {"file_path": "src/flask/sessions.py", "symbol": "SecureCookieSession"},
+        {"file_path": "src/flask/sessions.py", "symbol": "SecureCookieSessionInterface"}
+      ]
+    },
+    {
+      "id": "flask-007",
+      "category": "class_explanation",
+      "question": "What is the purpose of the `Flask` class?",
+      "expected_sources": [{"file_path": "src/flask/app.py", "symbol": "Flask"}]
+    },
+    {
+      "id": "flask-008",
+      "category": "class_explanation",
+      "question": "What is the purpose of `Blueprint`?",
+      "expected_sources": [{"file_path": "src/flask/blueprints.py", "symbol": "Blueprint"}]
+    },
+    {
+      "id": "flask-009",
+      "category": "method_explanation",
+      "question": "What does `Flask.route()` do?",
+      "expected_sources": [{"file_path": "src/flask/sansio/scaffold.py", "symbol": "Scaffold.route"}],
+      "accepted_sources": [{"file_path": "src/flask/sansio/scaffold.py", "symbol": "Scaffold.add_url_rule"}]
+    },
+    {
+      "id": "flask-010",
+      "category": "method_explanation",
+      "question": "What does `add_url_rule()` do?",
+      "expected_sources": [{"file_path": "src/flask/sansio/app.py", "symbol": "App.add_url_rule"}],
+      "accepted_sources": [
+        {"file_path": "src/flask/sansio/scaffold.py", "symbol": "Scaffold.add_url_rule"},
+        {"file_path": "src/flask/sansio/blueprints.py", "symbol": "BlueprintSetupState.add_url_rule"}
+      ]
+    },
+    {
+      "id": "flask-011",
+      "category": "method_explanation",
+      "question": "What does `Flask.dispatch_request()` do?",
+      "expected_sources": [{"file_path": "src/flask/app.py", "symbol": "Flask.dispatch_request"}]
+    },
+    {
+      "id": "flask-012",
+      "category": "method_explanation",
+      "question": "What does `Flask.full_dispatch_request()` do?",
+      "expected_sources": [{"file_path": "src/flask/app.py", "symbol": "Flask.full_dispatch_request"}]
+    },
+    {
+      "id": "flask-013",
+      "category": "method_explanation",
+      "question": "What does `Flask.make_response()` do?",
+      "expected_sources": [{"file_path": "src/flask/app.py", "symbol": "Flask.make_response"}]
+    },
+    {
+      "id": "flask-014",
+      "category": "method_explanation",
+      "question": "What does `Flask.finalize_request()` do?",
+      "expected_sources": [{"file_path": "src/flask/app.py", "symbol": "Flask.finalize_request"}]
+    },
+    {
+      "id": "flask-015",
+      "category": "request_flow",
+      "question": "What happens when a WSGI server sends a request to a Flask application?",
+      "expected_sources": [
+        {"file_path": "src/flask/app.py", "symbol": "Flask.wsgi_app"},
+        {"file_path": "src/flask/ctx.py", "symbol": "AppContext"}
+      ],
+      "accepted_sources": [
+        {"file_path": "src/flask/app.py", "symbol": "Flask.full_dispatch_request"},
+        {"file_path": "src/flask/ctx.py", "symbol": "AppContext.push"},
+        {"file_path": "src/flask/ctx.py", "symbol": "AppContext.pop"}
+      ]
+    },
+    {
+      "id": "flask-016",
+      "category": "request_flow",
+      "question": "How does Flask match a URL to a view function?",
+      "expected_sources": [
+        {"file_path": "src/flask/ctx.py", "symbol": "AppContext.match_request"},
+        {"file_path": "src/flask/app.py", "symbol": "Flask.dispatch_request"}
+      ]
+    },
+    {
+      "id": "flask-017",
+      "category": "request_flow",
+      "question": "In what order are `before_request`, the view function and `after_request` executed?",
+      "expected_sources": [
+        {"file_path": "src/flask/app.py", "symbol": "Flask.preprocess_request"},
+        {"file_path": "src/flask/app.py", "symbol": "Flask.process_response"}
+      ],
+      "accepted_sources": [
+        {"file_path": "src/flask/app.py", "symbol": "Flask.full_dispatch_request"},
+        {"file_path": "src/flask/sansio/scaffold.py"}
+      ]
+    },
+    {
+      "id": "flask-018",
+      "category": "error_handling",
+      "question": "How does Flask select an error handler?",
+      "expected_sources": [{"file_path": "src/flask/sansio/app.py", "symbol": "App._find_error_handler"}]
+    },
+    {
+      "id": "flask-019",
+      "category": "error_handling",
+      "question": "What is the difference between `handle_user_exception()` and `handle_exception()`?",
+      "expected_sources": [
+        {"file_path": "src/flask/app.py", "symbol": "Flask.handle_user_exception"},
+        {"file_path": "src/flask/app.py", "symbol": "Flask.handle_exception"}
+      ]
+    },
+    {
+      "id": "flask-020",
+      "category": "blueprints",
+      "question": "How is a blueprint registered with a Flask application?",
+      "expected_sources": [
+        {"file_path": "src/flask/sansio/app.py", "symbol": "App.register_blueprint"},
+        {"file_path": "src/flask/sansio/blueprints.py", "symbol": "Blueprint.register"}
+      ],
+      "accepted_sources": [
+        {"file_path": "src/flask/sansio/blueprints.py", "symbol": "BlueprintSetupState"}
+      ]
+    },
+    {
+      "id": "flask-021",
+      "category": "blueprints",
+      "question": "How does a blueprint URL prefix affect its routes?",
+      "expected_sources": [{"file_path": "src/flask/sansio/blueprints.py"}],
+      "accepted_sources": [
+        {"file_path": "src/flask/sansio/blueprints.py", "symbol": "BlueprintSetupState.add_url_rule"},
+        {"file_path": "src/flask/sansio/blueprints.py", "symbol": "Blueprint.register"}
+      ]
+    },
+    {
+      "id": "flask-022",
+      "category": "contexts",
+      "question": "Why does Flask use application and request contexts?",
+      "expected_sources": [
+        {"file_path": "src/flask/ctx.py"},
+        {"file_path": "src/flask/globals.py"}
+      ]
+    },
+    {
+      "id": "flask-023",
+      "category": "contexts",
+      "question": "What is stored in `g` and how long does it live?",
+      "expected_sources": [
+        {"file_path": "src/flask/ctx.py", "symbol": "_AppCtxGlobals"},
+        {"file_path": "src/flask/globals.py"}
+      ],
+      "accepted_sources": [{"file_path": "src/flask/ctx.py", "symbol": "AppContext"}]
+    },
+    {
+      "id": "flask-024",
+      "category": "sessions",
+      "question": "How are Flask sessions stored by default?",
+      "expected_sources": [{"file_path": "src/flask/sessions.py", "symbol": "SecureCookieSessionInterface"}],
+      "accepted_sources": [{"file_path": "src/flask/sessions.py", "symbol": "SecureCookieSession"}]
+    },
+    {
+      "id": "flask-025",
+      "category": "sessions",
+      "question": "How does Flask open and save a session?",
+      "expected_sources": [
+        {"file_path": "src/flask/ctx.py", "symbol": "AppContext._get_session"},
+        {"file_path": "src/flask/app.py", "symbol": "Flask.process_response"},
+        {"file_path": "src/flask/sessions.py", "symbol": "SecureCookieSessionInterface.open_session"},
+        {"file_path": "src/flask/sessions.py", "symbol": "SecureCookieSessionInterface.save_session"}
+      ],
+      "accepted_sources": [{"file_path": "src/flask/sessions.py", "symbol": "SessionInterface"}]
+    },
+    {
+      "id": "flask-026",
+      "category": "templates",
+      "question": "How does `render_template()` select and render a template?",
+      "expected_sources": [
+        {"file_path": "src/flask/templating.py", "symbol": "render_template"},
+        {"file_path": "src/flask/templating.py", "symbol": "_render"}
+      ]
+    },
+    {
+      "id": "flask-027",
+      "category": "static_files",
+      "question": "How does Flask serve files from the configured static directory?",
+      "expected_sources": [
+        {"file_path": "src/flask/app.py", "symbol": "Flask.__init__"},
+        {"file_path": "src/flask/app.py", "symbol": "Flask.send_static_file"}
+      ]
+    },
+    {
+      "id": "flask-028",
+      "category": "cli",
+      "question": "How does the Flask CLI locate an application?",
+      "expected_sources": [
+        {"file_path": "src/flask/cli.py", "symbol": "ScriptInfo"},
+        {"file_path": "src/flask/cli.py", "symbol": "locate_app"},
+        {"file_path": "src/flask/cli.py", "symbol": "find_best_app"}
+      ]
+    },
+    {
+      "id": "flask-029",
+      "category": "class_based_views",
+      "question": "How does `View.as_view()` turn a class into a Flask view function?",
+      "expected_sources": [{"file_path": "src/flask/views.py", "symbol": "View.as_view"}],
+      "accepted_sources": [{"file_path": "src/flask/views.py", "symbol": "View"}]
+    },
+    {
+      "id": "flask-030",
+      "category": "class_based_views",
+      "question": "How does `MethodView` dispatch different HTTP methods?",
+      "expected_sources": [{"file_path": "src/flask/views.py", "symbol": "MethodView.dispatch_request"}]
+    }
+  ]
+}

@@ -1,0 +1,180 @@
+{
+  "name": "Typer codebase evaluation",
+  "repository": "/path/to/typer",
+  "notes": "Ground truth is aligned to this Typer checkout and to method-level AST chunks with qualified names.",
+  "questions": [
+    {
+      "id": "typer-001", "category": "application_creation",
+      "question": "How is a Typer application created?",
+      "expected_sources": [{"file_path": "typer/main.py", "symbol": "Typer"}],
+      "important_facts": ["Typer is the main application class."]
+    },
+    {
+      "id": "typer-002", "category": "symbol_lookup",
+      "question": "Where is the `Typer` class implemented?",
+      "expected_sources": [{"file_path": "typer/main.py", "symbol": "Typer"}],
+      "important_facts": ["Typer is implemented in typer/main.py."]
+    },
+    {
+      "id": "typer-003", "category": "command_registration",
+      "question": "How are CLI commands registered?",
+      "expected_sources": [{"file_path": "typer/main.py", "symbol": "Typer.command"}],
+      "important_facts": ["Typer.command is a decorator method on the Typer class."]
+    },
+    {
+      "id": "typer-004", "category": "command_registration",
+      "question": "How does `@app.command()` work internally?",
+      "expected_sources": [{"file_path": "typer/main.py", "symbol": "Typer.command"}],
+      "important_facts": ["The command method records command metadata and returns a decorator."]
+    },
+    {
+      "id": "typer-005", "category": "callback_registration",
+      "question": "Where is `@app.callback()` implemented?",
+      "expected_sources": [{"file_path": "typer/main.py", "symbol": "Typer.callback"}],
+      "important_facts": ["The callback decorator is implemented as a Typer class method."]
+    },
+    {
+      "id": "typer-006", "category": "argument_parsing",
+      "question": "How are command-line arguments parsed?",
+      "expected_sources": [
+        {"file_path": "typer/main.py", "symbol": "get_command_from_info"},
+        {"file_path": "typer/main.py", "symbol": "get_click_param"}
+      ],
+      "accepted_sources": [
+        {"file_path": "typer/_click/parser.py", "symbol": "_OptionParser.parse_args"},
+        {"file_path": "typer/params.py", "symbol": "Argument"},
+        {"file_path": "typer/params.py", "symbol": "Option"}
+      ],
+      "important_facts": ["Command metadata becomes a Click command.", "Parameter metadata becomes Click arguments or options."]
+    },
+    {
+      "id": "typer-007", "category": "parameter_conversion",
+      "question": "How does Typer convert function parameters into CLI options?",
+      "expected_sources": [{"file_path": "typer/main.py", "symbol": "get_params_convertors_ctx_param_name_from_function"}],
+      "accepted_sources": [{"file_path": "typer/main.py", "symbol": "get_click_param"}],
+      "important_facts": ["Function parameter metadata and converters are derived from the callback signature."]
+    },
+    {
+      "id": "typer-008", "category": "click_integration",
+      "question": "Where are Click commands created?",
+      "expected_sources": [{"file_path": "typer/main.py", "symbol": "get_command_from_info"}],
+      "accepted_sources": [
+        {"file_path": "typer/main.py", "symbol": "get_command"},
+        {"file_path": "typer/core.py", "symbol": "TyperCommand"}
+      ],
+      "important_facts": ["get_command_from_info constructs the Click-compatible command."]
+    },
+    {
+      "id": "typer-009", "category": "help_generation",
+      "question": "How are help messages generated?",
+      "expected_sources": [
+        {"file_path": "typer/core.py", "symbol": "TyperCommand"},
+        {"file_path": "typer/core.py", "symbol": "TyperGroup"}
+      ],
+      "accepted_sources": [
+        {"file_path": "typer/rich_utils.py", "symbol": "rich_format_help"},
+        {"file_path": "typer/rich_utils.py", "symbol": "_make_command_help"},
+        {"file_path": "typer/rich_utils.py", "symbol": "_get_parameter_help"}
+      ],
+      "important_facts": ["TyperCommand and TyperGroup implement help formatting behavior."]
+    },
+    {
+      "id": "typer-010", "category": "completion",
+      "question": "Where is shell completion implemented?",
+      "expected_sources": [{"file_path": "typer/completion.py", "symbol": "shell_complete"}],
+      "accepted_sources": [{"file_path": "typer/completion.py"}],
+      "important_facts": ["shell_complete handles completion requests in typer/completion.py."]
+    },
+    {
+      "id": "typer-011", "category": "boolean_flags",
+      "question": "How are boolean flags handled?",
+      "expected_sources": [
+        {"file_path": "typer/main.py", "symbol": "get_click_param"},
+        {"file_path": "typer/core.py", "symbol": "TyperOption"}
+      ],
+      "important_facts": ["get_click_param recognizes boolean options and configures flag behavior.", "TyperOption provides runtime option behavior."]
+    },
+    {
+      "id": "typer-012", "category": "class_explanation",
+      "question": "Explain the `TyperOption` class.",
+      "expected_sources": [{"file_path": "typer/core.py", "symbol": "TyperOption"}],
+      "important_facts": ["TyperOption is implemented in typer/core.py and extends Click parameter behavior."]
+    },
+    {
+      "id": "typer-013", "category": "class_explanation",
+      "question": "Explain the `TyperArgument` class.",
+      "expected_sources": [{"file_path": "typer/core.py", "symbol": "TyperArgument"}],
+      "important_facts": ["TyperArgument is implemented in typer/core.py and extends Click parameter behavior."]
+    },
+    {
+      "id": "typer-014", "category": "callbacks",
+      "question": "How are callbacks executed?",
+      "expected_sources": [
+        {"file_path": "typer/main.py", "symbol": "Typer.callback"},
+        {"file_path": "typer/main.py", "symbol": "get_callback"}
+      ],
+      "important_facts": ["Typer registers callback metadata.", "get_callback wraps callback invocation and conversion."]
+    },
+    {
+      "id": "typer-015", "category": "click_integration",
+      "question": "How does Typer integrate with Click?",
+      "expected_sources": [{"file_path": "typer/main.py", "symbol": "get_command_from_info"}],
+      "accepted_sources": [
+        {"file_path": "typer/core.py", "symbol": "TyperCommand"},
+        {"file_path": "typer/core.py", "symbol": "TyperGroup"},
+        {"file_path": "typer/main.py", "symbol": "get_click_param"}
+      ],
+      "important_facts": ["Typer converts its command information into Click command objects."]
+    },
+    {
+      "id": "typer-016", "category": "defaults",
+      "question": "Where are default values processed?",
+      "expected_sources": [
+        {"file_path": "typer/utils.py", "symbol": "get_params_from_function"},
+        {"file_path": "typer/main.py", "symbol": "get_click_param"}
+      ],
+      "accepted_sources": [
+        {"file_path": "typer/models.py", "symbol": "Default"},
+        {"file_path": "typer/models.py", "symbol": "DefaultPlaceholder"},
+        {"file_path": "typer/core.py", "symbol": "_get_default_string"},
+        {"file_path": "typer/core.py", "symbol": "TyperArgument._get_default_string"},
+        {"file_path": "typer/core.py", "symbol": "TyperOption._get_default_string"}
+      ],
+      "important_facts": ["Function defaults become parameter metadata.", "Parameter metadata is converted to Click defaults."]
+    },
+    {
+      "id": "typer-017", "category": "parameter_metadata",
+      "question": "Where is parameter validation implemented?",
+      "expected_sources": [
+        {"file_path": "typer/models.py", "symbol": "ParameterInfo"},
+        {"file_path": "typer/models.py", "symbol": "OptionInfo"},
+        {"file_path": "typer/models.py", "symbol": "ArgumentInfo"}
+      ],
+      "accepted_sources": [
+        {"file_path": "typer/utils.py", "symbol": "get_params_from_function"},
+        {"file_path": "typer/params.py", "symbol": "Option"},
+        {"file_path": "typer/params.py", "symbol": "Argument"},
+        {"file_path": "typer/_click/core.py", "symbol": "Parameter"}
+      ],
+      "important_facts": ["ParameterInfo, OptionInfo, and ArgumentInfo store parameter constraints and metadata."]
+    },
+    {
+      "id": "typer-018", "category": "file_discovery",
+      "question": "Which module handles shell completion?",
+      "expected_sources": [{"file_path": "typer/completion.py"}],
+      "important_facts": ["Shell completion is handled in typer/completion.py."]
+    },
+    {
+      "id": "typer-019", "category": "utility",
+      "question": "Where is the `run()` helper implemented?",
+      "expected_sources": [{"file_path": "typer/main.py", "symbol": "run"}],
+      "important_facts": ["run is implemented in typer/main.py."]
+    },
+    {
+      "id": "typer-020", "category": "function_explanation",
+      "question": "Explain what `get_command_from_info()` does.",
+      "expected_sources": [{"file_path": "typer/main.py", "symbol": "get_command_from_info"}],
+      "important_facts": ["It converts CommandInfo and parameter data into a Click-compatible TyperCommand."]
+    }
+  ]
+}

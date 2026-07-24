@@ -108,11 +108,12 @@ Metrics:
 
 ### Current Results
 
-| Repository | Questions | Hit@6 |
-|------------|----------:|------:|
-| Flask | 30 | 86.7% |
-| Typer | 40 | 90.0% |
-| Requests | 28 | 89.3% |
+| Repository | Questions | Useful Hit@6 | Useful Hit@8 |
+|------------|----------:|-------------:|-------------:|
+| Flask | 30 | 86.7% | 93.3% |
+| Typer | 40 | 90.0% | 90.0% |
+| Requests | 28 | 89.3% | 96.4% |
+| Weighted aggregate | 98 | 88.8% | 92.9% |
 
 ---
 

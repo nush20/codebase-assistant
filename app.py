@@ -5,8 +5,8 @@ import os
 import streamlit as st
 from dotenv import load_dotenv
 
+from api_client import BackendError, index_repository, query_repository
 from config import DEFAULT_TOP_K
-from rag_pipeline import answer_question, ingest_repo
 
 load_dotenv()
 st.set_page_config(page_title="Local Codebase Assistant", page_icon="🔎", layout="wide")
@@ -25,22 +25,22 @@ with st.sidebar:
     if st.button("Index Repository", type="primary", use_container_width=True):
         try:
             with st.spinner("Loading, chunking, embedding, and indexing…"):
-                result = ingest_repo(repo_path)
-            st.session_state.repo_name = result.repo_name
+                result = index_repository(repo_path)
+            st.session_state.repo_name = result["repo_name"]
             st.session_state.last_ingestion = result
             st.session_state.chat_history = []
             st.success("Repository indexed.")
-        except Exception as exc:
+        except BackendError as exc:
             st.error(str(exc))
     if st.session_state.last_ingestion:
         result = st.session_state.last_ingestion
-        st.write(f"**Repository:** {result.repo_name}")
-        st.write(f"**Files:** {result.files_processed}  \n**Chunks:** {result.chunks_created}")
-        if result.skipped_file_count:
-            st.caption(f"Skipped files: {result.skipped_file_count}")
-        if result.indexing_errors:
+        st.write(f"**Repository:** {result['repo_name']}")
+        st.write(f"**Files:** {result['files_processed']}  \n**Chunks:** {result['chunks_created']}")
+        if result["skipped_file_count"]:
+            st.caption(f"Skipped files: {result['skipped_file_count']}")
+        if result["indexing_errors"]:
             with st.expander("Indexing warnings"):
-                for error in result.indexing_errors:
+                for error in result["indexing_errors"]:
                     st.write(error)
 
 st.title("Ask questions about a local codebase")
@@ -52,9 +52,12 @@ for message in st.session_state.chat_history:
         if message.get("sources"):
             with st.expander("Retrieved source chunks"):
                 for item in message["sources"]:
-                    c = item.chunk
-                    st.markdown(f"**{c.file_path} — {c.unit_name}, lines {c.start_line}-{c.end_line}** · score `{item.score:.4f}`")
-                    st.code(c.text, language=c.language.lower())
+                    st.markdown(
+                        f"**{item['file']} — {item['symbol']}, lines "
+                        f"{item['line_start']}-{item['line_end']}** · semantic similarity "
+                        f"`{item['score']:.4f}`"
+                    )
+                    st.code(item["text"], language=item["language"].lower())
 
 question = st.chat_input("Ask about the indexed repository…", disabled=not st.session_state.repo_name)
 if question:
@@ -64,17 +67,22 @@ if question:
     try:
         with st.chat_message("assistant"):
             with st.spinner("Retrieving code and asking Gemini…"):
-                answer = answer_question(st.session_state.repo_name, question, int(top_k))
-            st.markdown(answer.answer)
-            if answer.retrieved_sources:
+                answer = query_repository(st.session_state.repo_name, question, int(top_k))
+            st.markdown(answer["answer"])
+            if answer["sources"]:
                 with st.expander("Retrieved source chunks"):
-                    for item in answer.retrieved_sources:
-                        c = item.chunk
-                        st.markdown(f"**{c.file_path} — {c.unit_name}, lines {c.start_line}-{c.end_line}** · score `{item.score:.4f}`")
-                        st.code(c.text, language=c.language.lower())
-        st.session_state.retrieved_sources = answer.retrieved_sources
-        st.session_state.chat_history.append({"role": "assistant", "content": answer.answer, "sources": answer.retrieved_sources})
-    except Exception as exc:
+                    for item in answer["sources"]:
+                        st.markdown(
+                            f"**{item['file']} — {item['symbol']}, lines "
+                            f"{item['line_start']}-{item['line_end']}** · semantic similarity "
+                            f"`{item['score']:.4f}`"
+                        )
+                        st.code(item["text"], language=item["language"].lower())
+        st.session_state.retrieved_sources = answer["sources"]
+        st.session_state.chat_history.append({
+            "role": "assistant", "content": answer["answer"], "sources": answer["sources"]
+        })
+    except BackendError as exc:
         message = f"Unable to answer: {exc}"
         st.error(message)
         st.session_state.chat_history.append({"role": "assistant", "content": message})

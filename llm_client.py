@@ -1,6 +1,7 @@
 """Gemini-specific answer generation, isolated behind one function."""
 
 import os
+import logging
 import time
 
 from dotenv import load_dotenv
@@ -13,6 +14,8 @@ from config import (
     MAX_RESPONSE_TOKENS,
 )
 from models import RetrievedChunk
+
+logger = logging.getLogger(__name__)
 
 
 def _build_prompt(question: str, retrieved_chunks: list[RetrievedChunk]) -> str:
@@ -73,8 +76,15 @@ def generate_answer(question: str, retrieved_chunks: list[RetrievedChunk]) -> st
                 return response.text
             except Exception as exc:
                 if not _is_transient_error(exc):
+                    logger.exception("Gemini request failed for model %s", model_name)
                     raise
                 last_error = exc
+                logger.warning(
+                    "Transient Gemini failure for model %s (attempt %d/%d)",
+                    model_name,
+                    attempt + 1,
+                    GEMINI_MAX_ATTEMPTS_PER_MODEL,
+                )
                 if attempt + 1 < GEMINI_MAX_ATTEMPTS_PER_MODEL:
                     time.sleep(GEMINI_RETRY_DELAY_SECONDS * (attempt + 1))
     raise RuntimeError(

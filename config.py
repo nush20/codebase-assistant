@@ -1,6 +1,12 @@
 """Central configuration for the codebase assistant."""
 
-EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2")
 EMBEDDING_DIMENSION = 384
 EMBEDDING_BATCH_SIZE = 32
 CHUNK_WINDOW_SIZE = 10
@@ -25,11 +31,13 @@ NONIMPLEMENTATION_SOURCE_BOOST = 0.08
 NONIMPLEMENTATION_DOCS_PENALTY = 0.10
 NONIMPLEMENTATION_TEST_PENALTY = 0.12
 PRIVATE_DIRECTORY_PENALTY = 0.20
-GEMINI_MODEL_NAME = "gemini-3.5-flash"
+GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-3.5-flash")
 GEMINI_FALLBACK_MODEL_NAMES = ("gemini-3.1-flash-lite",)
 GEMINI_MAX_ATTEMPTS_PER_MODEL = 2
 GEMINI_RETRY_DELAY_SECONDS = 1.0
 MAX_RESPONSE_TOKENS = 2048
+API_BASE_URL = os.getenv("CODEBASE_ASSISTANT_API_URL", "http://127.0.0.1:8000").rstrip("/")
+API_REQUEST_TIMEOUT_SECONDS = float(os.getenv("API_REQUEST_TIMEOUT_SECONDS", "600"))
 
 IGNORED_DIRECTORIES = frozenset({
     ".git", ".github", "node_modules", "venv", ".venv", "env",

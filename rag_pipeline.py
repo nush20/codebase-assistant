@@ -1,5 +1,6 @@
 """Public orchestration functions for repository ingestion and grounded Q&A."""
 
+import logging
 import re
 
 from code_chunker import chunk_file
@@ -23,11 +24,18 @@ from config import (
     UNIT_TOKEN_COVERAGE_BOOST,
 )
 from embedder import embed_chunks, embed_question
+from errors import (
+    GenerationServiceError,
+    IndexingServiceError,
+    RepositoryNotIndexedError,
+    RetrievalServiceError,
+)
 from llm_client import generate_answer
 from models import AnswerResult, IngestionResult
 from repo_loader import load_repository
 from vector_store import vector_store
 
+logger = logging.getLogger(__name__)
 
 _TOKEN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _CODE_IDENTIFIER_RE = re.compile(r"`([^`]+)`|\b([A-Za-z_][A-Za-z0-9_.]*)\s*\(")
@@ -172,6 +180,7 @@ def rerank_chunks(question: str, candidates: list, top_k: int):
 
 
 def ingest_repo(repo_path: str) -> IngestionResult:
+    logger.info("Repository indexing started")
     loaded = load_repository(repo_path)
     chunks = []
     errors = list(loaded.errors)
@@ -184,24 +193,61 @@ def ingest_repo(repo_path: str) -> IngestionResult:
         raise ValueError("No supported readable files were found in the repository.")
     if not chunks:
         raise ValueError("Supported files were found, but no non-empty code chunks could be created.")
-    embeddings = embed_chunks(chunks)
-    vector_store.clear_repository(loaded.repo_name)
-    vector_store.upsert_chunks(chunks, embeddings)
-    return IngestionResult(loaded.repo_name, len(loaded.files), len(chunks), loaded.skipped_count, errors)
+    try:
+        embeddings = embed_chunks(chunks)
+        vector_store.clear_repository(loaded.repo_name)
+        vector_store.upsert_chunks(chunks, embeddings)
+    except Exception as exc:
+        logger.exception("Repository indexing dependency failed for repository %s", loaded.repo_name)
+        raise IndexingServiceError("Repository indexing failed.") from exc
+    result = IngestionResult(
+        loaded.repo_name, len(loaded.files), len(chunks), loaded.skipped_count, errors
+    )
+    logger.info(
+        "Repository indexing completed for %s: files=%d chunks=%d skipped=%d",
+        result.repo_name,
+        result.files_processed,
+        result.chunks_created,
+        result.skipped_file_count,
+    )
+    return result
 
 
 def retrieve_chunks(repo_name: str, question: str, top_k: int):
     candidate_k = max(MIN_RETRIEVAL_CANDIDATES, top_k * RETRIEVAL_CANDIDATE_MULTIPLIER)
-    candidates = vector_store.search(embed_question(question), repo_name, candidate_k)
-    return rerank_chunks(question, candidates, top_k)
+    try:
+        candidates = vector_store.search(embed_question(question), repo_name, candidate_k)
+    except Exception as exc:
+        logger.exception("Retrieval failed for repository %s", repo_name)
+        raise RetrievalServiceError("Code retrieval failed.") from exc
+    results = rerank_chunks(question, candidates, top_k)
+    logger.info("Retrieval completed for %s: chunks=%d", repo_name, len(results))
+    return results
 
 
 def answer_question(repo_name: str, question: str, top_k: int = 6) -> AnswerResult:
+    if not repo_name or not repo_name.strip():
+        raise ValueError("Repository name cannot be empty.")
     if not question or not question.strip():
         raise ValueError("Question cannot be empty.")
     if top_k < 1:
         raise ValueError("top_k must be at least 1.")
+    repo_name = repo_name.strip()
+    try:
+        indexed_chunks = vector_store.count_repository_chunks(repo_name)
+    except Exception as exc:
+        logger.exception("Unable to inspect index for repository %s", repo_name)
+        raise RetrievalServiceError("Unable to access the repository index.") from exc
+    if indexed_chunks == 0:
+        raise RepositoryNotIndexedError(f"Repository is not indexed: {repo_name}")
+    logger.info("Query received for repository %s", repo_name)
     retrieved = retrieve_chunks(repo_name, question.strip(), top_k)
     if not retrieved:
         return AnswerResult("No relevant indexed code chunks were found for this repository.", [])
-    return AnswerResult(generate_answer(question.strip(), retrieved), retrieved)
+    try:
+        answer = generate_answer(question.strip(), retrieved)
+    except Exception as exc:
+        logger.exception("Answer generation failed for repository %s", repo_name)
+        raise GenerationServiceError("Answer generation failed.") from exc
+    logger.info("Answer generation completed for repository %s", repo_name)
+    return AnswerResult(answer, retrieved)

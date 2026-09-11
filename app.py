@@ -1,6 +1,4 @@
-"""Streamlit interface for the local codebase assistant."""
-
-import os
+"""Streamlit interface for the codebase assistant."""
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -9,7 +7,7 @@ from api_client import BackendError, index_repository, query_repository
 from config import DEFAULT_TOP_K
 
 load_dotenv()
-st.set_page_config(page_title="Local Codebase Assistant", page_icon="🔎", layout="wide")
+st.set_page_config(page_title="Codebase Assistant", page_icon="🔎", layout="wide")
 
 for key, default in {
     "repo_name": None, "chat_history": [], "last_ingestion": None, "retrieved_sources": []
@@ -24,7 +22,6 @@ with st.sidebar:
         placeholder="https://github.com/pallets/flask.git",
     )
     top_k = st.number_input("Retrieved chunks", min_value=1, max_value=20, value=DEFAULT_TOP_K)
-    st.caption("Gemini API key: " + ("configured ✅" if os.getenv("GEMINI_API_KEY") else "missing ⚠️"))
     if st.button("Index Repository", type="primary", use_container_width=True):
         try:
             with st.spinner("Loading, chunking, embedding, and indexing…"):
@@ -46,7 +43,7 @@ with st.sidebar:
                 for error in result["indexing_errors"]:
                     st.write(error)
 
-st.title("Ask questions about a local codebase")
+st.title("Ask questions about a codebase")
 st.write("Index a repository, then ask grounded questions. Answers cite the retrieved files, symbols, and line ranges.")
 
 for message in st.session_state.chat_history:
@@ -57,8 +54,7 @@ for message in st.session_state.chat_history:
                 for item in message["sources"]:
                     st.markdown(
                         f"**{item['file']} — {item['symbol']}, lines "
-                        f"{item['line_start']}-{item['line_end']}** · semantic similarity "
-                        f"`{item['score']:.4f}`"
+                        f"{item['line_start']}-{item['line_end']}**"
                     )
                     st.code(item["text"], language=item["language"].lower())
 
@@ -77,8 +73,7 @@ if question:
                     for item in answer["sources"]:
                         st.markdown(
                             f"**{item['file']} — {item['symbol']}, lines "
-                            f"{item['line_start']}-{item['line_end']}** · semantic similarity "
-                            f"`{item['score']:.4f}`"
+                            f"{item['line_start']}-{item['line_end']}**"
                         )
                         st.code(item["text"], language=item["language"].lower())
         st.session_state.retrieved_sources = answer["sources"]

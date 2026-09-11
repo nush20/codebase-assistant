@@ -194,7 +194,7 @@ def ingest_repo(repo_path: str) -> IngestionResult:
     if not chunks:
         raise ValueError("Supported files were found, but no non-empty code chunks could be created.")
     try:
-        embeddings = embed_chunks(chunks)
+        embeddings = None if vector_store.cloud_inference else embed_chunks(chunks)
         vector_store.clear_repository(loaded.repo_name)
         vector_store.upsert_chunks(chunks, embeddings)
     except Exception as exc:
@@ -216,7 +216,8 @@ def ingest_repo(repo_path: str) -> IngestionResult:
 def retrieve_chunks(repo_name: str, question: str, top_k: int):
     candidate_k = max(MIN_RETRIEVAL_CANDIDATES, top_k * RETRIEVAL_CANDIDATE_MULTIPLIER)
     try:
-        candidates = vector_store.search(embed_question(question), repo_name, candidate_k)
+        query = question if vector_store.cloud_inference else embed_question(question)
+        candidates = vector_store.search(query, repo_name, candidate_k)
     except Exception as exc:
         logger.exception("Retrieval failed for repository %s", repo_name)
         raise RetrievalServiceError("Code retrieval failed.") from exc

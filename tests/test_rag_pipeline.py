@@ -1,4 +1,5 @@
 from models import CodeChunk, RetrievedChunk
+import rag_pipeline
 from rag_pipeline import _tokens, rerank_chunks
 
 
@@ -41,3 +42,22 @@ def test_exact_short_symbol_beats_higher_semantic_cli_result():
     ]
     ranked = rerank_chunks("How are CLI commands registered?", candidates, 2)
     assert ranked[0].chunk.unit_name == "Typer.command"
+
+
+def test_cloud_retrieval_sends_raw_question_without_local_embedding(monkeypatch):
+    monkeypatch.setattr(rag_pipeline.vector_store, "cloud_inference", True)
+    recorded = {}
+
+    def search(query, repo_name, top_k):
+        recorded.update(query=query, repo_name=repo_name, top_k=top_k)
+        return []
+
+    monkeypatch.setattr(rag_pipeline.vector_store, "search", search)
+    monkeypatch.setattr(
+        rag_pipeline,
+        "embed_question",
+        lambda _: (_ for _ in ()).throw(AssertionError("local embedding should not run")),
+    )
+
+    assert rag_pipeline.retrieve_chunks("repo", "Where is routing?", 6) == []
+    assert recorded == {"query": "Where is routing?", "repo_name": "repo", "top_k": 100}

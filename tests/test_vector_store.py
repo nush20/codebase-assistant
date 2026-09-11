@@ -2,6 +2,7 @@ import pytest
 
 pytest.importorskip("qdrant_client")
 from qdrant_client import QdrantClient
+from qdrant_client import models
 
 from models import CodeChunk
 from vector_store import VectorStore
@@ -27,3 +28,40 @@ def test_insert_search_filter_count_and_clear():
     store.clear_repository("repo-a")
     assert store.count_repository_chunks("repo-a") == 0
     assert store.count_repository_chunks("repo-b") == 1
+
+
+class CloudInferenceClient:
+    def __init__(self):
+        self.upserted = []
+        self.query = None
+
+    def collection_exists(self, _):
+        return True
+
+    def upsert(self, _, points, wait):
+        self.upserted.extend(points)
+
+    def query_points(self, _, query, **__):
+        self.query = query
+        return type("Response", (), {"points": []})()
+
+
+def test_cloud_inference_sends_chunk_text_and_query_to_qdrant():
+    client = CloudInferenceClient()
+    store = VectorStore(client, "cloud_chunks", cloud_inference=True)
+    item = chunk("repo", "src/example.py", 1)
+
+    store.upsert_chunks([item])
+    store.search("Where is the example?", "repo", 5)
+
+    assert isinstance(client.upserted[0].vector, models.Document)
+    assert "src/example.py" in client.upserted[0].vector.text
+    assert client.upserted[0].vector.model == "sentence-transformers/all-MiniLM-L6-v2"
+    assert isinstance(client.query, models.Document)
+    assert client.query.text == "Where is the example?"
+
+
+def test_local_store_requires_explicit_embeddings():
+    store = VectorStore(QdrantClient(":memory:"), "local_chunks")
+    with pytest.raises(ValueError, match="Local embeddings"):
+        store.upsert_chunks([chunk("repo", "a.py", 1)])

@@ -68,7 +68,7 @@ python -m venv .venv
 
 source .venv/bin/activate
 
-pip install -r requirements.txt
+pip install -r requirements-local.txt
 ```
 
 Create a `.env` file:
@@ -136,7 +136,8 @@ codebase-assistant/
 ├── evaluation/
 ├── tests/
 │
-├── requirements.txt
+├── requirements.txt          # Lightweight cloud/frontend dependencies
+├── requirements-local.txt    # Adds local Sentence Transformers inference
 ├── README.md
 ├── .env.example
 └── .gitignore

@@ -27,6 +27,7 @@ class VectorStore:
         )
         self.client = client if client is not None else self._default_client()
         self.collection_name = collection_name
+        self._payload_index_ready = False
 
     @staticmethod
     def _default_client() -> QdrantClient:
@@ -45,6 +46,14 @@ class VectorStore:
                 collection_name=self.collection_name,
                 vectors_config=models.VectorParams(size=EMBEDDING_DIMENSION, distance=models.Distance.COSINE),
             )
+        if self.cloud_inference and not self._payload_index_ready:
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="repo_name",
+                field_schema=models.PayloadSchemaType.KEYWORD,
+                wait=True,
+            )
+            self._payload_index_ready = True
 
     def upsert_chunks(
         self,

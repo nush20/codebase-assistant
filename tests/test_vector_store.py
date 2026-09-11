@@ -34,12 +34,16 @@ class CloudInferenceClient:
     def __init__(self):
         self.upserted = []
         self.query = None
+        self.payload_indexes = []
 
     def collection_exists(self, _):
         return True
 
     def upsert(self, _, points, wait):
         self.upserted.extend(points)
+
+    def create_payload_index(self, **kwargs):
+        self.payload_indexes.append(kwargs)
 
     def query_points(self, _, query, **__):
         self.query = query
@@ -59,6 +63,12 @@ def test_cloud_inference_sends_chunk_text_and_query_to_qdrant():
     assert client.upserted[0].vector.model == "sentence-transformers/all-MiniLM-L6-v2"
     assert isinstance(client.query, models.Document)
     assert client.query.text == "Where is the example?"
+    assert client.payload_indexes == [{
+        "collection_name": "cloud_chunks",
+        "field_name": "repo_name",
+        "field_schema": models.PayloadSchemaType.KEYWORD,
+        "wait": True,
+    }]
 
 
 def test_local_store_requires_explicit_embeddings():

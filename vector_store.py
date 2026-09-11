@@ -1,17 +1,23 @@
-"""In-memory Qdrant storage with repository-isolated retrieval."""
+"""Qdrant storage with cloud configuration and a local in-memory fallback."""
 
 from __future__ import annotations
 
 from qdrant_client import QdrantClient, models
 
-from config import EMBEDDING_DIMENSION, QDRANT_COLLECTION_NAME
+from config import EMBEDDING_DIMENSION, QDRANT_API_KEY, QDRANT_COLLECTION_NAME, QDRANT_URL
 from models import CodeChunk, RetrievedChunk
 
 
 class VectorStore:
     def __init__(self, client: QdrantClient | None = None, collection_name: str = QDRANT_COLLECTION_NAME):
-        self.client = client or QdrantClient(":memory:")
+        self.client = client if client is not None else self._default_client()
         self.collection_name = collection_name
+
+    @staticmethod
+    def _default_client() -> QdrantClient:
+        if QDRANT_URL:
+            return QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY or None)
+        return QdrantClient(":memory:")
 
     def create_collection_if_needed(self) -> None:
         if not self.client.collection_exists(self.collection_name):

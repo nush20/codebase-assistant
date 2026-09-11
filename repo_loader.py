@@ -4,7 +4,14 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from config import IGNORED_DIRECTORIES, LANGUAGE_BY_EXTENSION, MAX_FILE_SIZE_BYTES, SUPPORTED_EXTENSIONS
+from config import (
+    IGNORED_DIRECTORIES,
+    LANGUAGE_BY_EXTENSION,
+    MAX_FILE_SIZE_BYTES,
+    MAX_REPOSITORY_FILES,
+    MAX_REPOSITORY_SIZE_BYTES,
+    SUPPORTED_EXTENSIONS,
+)
 from models import RepositoryFile
 
 
@@ -16,7 +23,12 @@ class LoadResult:
     errors: list[str] = field(default_factory=list)
 
 
-def load_repository(repo_path: str, max_file_size: int = MAX_FILE_SIZE_BYTES) -> LoadResult:
+def load_repository(
+    repo_path: str,
+    max_file_size: int = MAX_FILE_SIZE_BYTES,
+    max_files: int = MAX_REPOSITORY_FILES,
+    max_total_size: int = MAX_REPOSITORY_SIZE_BYTES,
+) -> LoadResult:
     root = Path(repo_path).expanduser().resolve()
     if not root.exists():
         raise ValueError(f"Repository path does not exist: {repo_path}")
@@ -24,6 +36,7 @@ def load_repository(repo_path: str, max_file_size: int = MAX_FILE_SIZE_BYTES) ->
         raise ValueError(f"Repository path is not a directory: {repo_path}")
 
     result = LoadResult(repo_name=root.name)
+    total_size = 0
     for current, dirs, names in os.walk(root):
         dirs[:] = sorted(d for d in dirs if d not in IGNORED_DIRECTORIES and not d.startswith("."))
         for name in sorted(names):
@@ -33,9 +46,16 @@ def load_repository(repo_path: str, max_file_size: int = MAX_FILE_SIZE_BYTES) ->
                 result.skipped_count += 1
                 continue
             try:
-                if path.stat().st_size > max_file_size:
+                file_size = path.stat().st_size
+                if file_size > max_file_size:
                     result.skipped_count += 1
                     continue
+                if len(result.files) >= max_files:
+                    raise ValueError(f"Repository exceeds the {max_files}-file indexing limit.")
+                if total_size + file_size > max_total_size:
+                    raise ValueError(
+                        f"Repository exceeds the {max_total_size // 1_000_000} MB indexing limit."
+                    )
                 raw = path.read_bytes()
                 if b"\x00" in raw:
                     result.skipped_count += 1
@@ -48,6 +68,7 @@ def load_repository(repo_path: str, max_file_size: int = MAX_FILE_SIZE_BYTES) ->
                     language=LANGUAGE_BY_EXTENSION[extension],
                     content=content,
                 ))
+                total_size += file_size
             except (OSError, UnicodeDecodeError) as exc:
                 result.skipped_count += 1
                 result.errors.append(f"{path.relative_to(root)}: {exc}")

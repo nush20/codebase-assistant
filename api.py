@@ -15,6 +15,7 @@ from errors import (
     RetrievalServiceError,
 )
 from rag_pipeline import answer_question, ingest_repo
+from repository_source import repository_source
 
 logging.basicConfig(
     level=logging.INFO,
@@ -85,7 +86,8 @@ def health() -> dict[str, str]:
 @app.post("/repositories/index", response_model=IndexRepositoryResponse)
 def index_repository(request: IndexRepositoryRequest) -> IndexRepositoryResponse:
     try:
-        result = ingest_repo(request.repo_path)
+        with repository_source(request.repo_path) as local_path:
+            result = ingest_repo(local_path)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except IndexingServiceError as exc:

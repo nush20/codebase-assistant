@@ -19,7 +19,10 @@ for key, default in {
 
 with st.sidebar:
     st.title("Codebase Assistant")
-    repo_path = st.text_input("Local repository path", placeholder="/path/to/repository")
+    repo_path = st.text_input(
+        "Repository path or public GitHub URL",
+        placeholder="https://github.com/pallets/flask.git",
+    )
     top_k = st.number_input("Retrieved chunks", min_value=1, max_value=20, value=DEFAULT_TOP_K)
     st.caption("Gemini API key: " + ("configured ✅" if os.getenv("GEMINI_API_KEY") else "missing ⚠️"))
     if st.button("Index Repository", type="primary", use_container_width=True):

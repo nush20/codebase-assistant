@@ -32,6 +32,30 @@ def test_index_repository(monkeypatch):
     }
 
 
+def test_index_repository_accepts_github_url(monkeypatch):
+    class FakeSource:
+        def __enter__(self):
+            return "/tmp/cloned/sample"
+
+        def __exit__(self, *_):
+            return None
+
+    monkeypatch.setattr(api, "repository_source", lambda value: FakeSource())
+    monkeypatch.setattr(
+        api,
+        "ingest_repo",
+        lambda path: IngestionResult("sample", 1, 2, 0, []),
+    )
+
+    response = client.post(
+        "/repositories/index",
+        json={"repo_path": "https://github.com/owner/sample.git"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["repo_name"] == "sample"
+
+
 def test_query_returns_structured_sources(monkeypatch):
     chunk = CodeChunk(
         "id", "sample", "src/auth.py", "Python", "def login(): ...", 10, 12,

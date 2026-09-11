@@ -10,6 +10,7 @@ from config import (
     IMPLEMENTATION_DOCS_PENALTY,
     IMPLEMENTATION_SOURCE_BOOST,
     IMPLEMENTATION_TEST_PENALTY,
+    MAX_CHUNKS_PER_JAVA_FILE,
     MAX_CHUNKS_PER_SYMBOL,
     MIN_RETRIEVAL_CANDIDATES,
     NONIMPLEMENTATION_DOCS_PENALTY,
@@ -169,7 +170,8 @@ def rerank_chunks(question: str, candidates: list, top_k: int):
         chunk = item.chunk
         symbol_key = (chunk.file_path, chunk.unit_name)
         range_key = (chunk.file_path, chunk.start_line, chunk.end_line)
-        if range_key in seen_ranges or symbol_counts.get(symbol_key, 0) >= MAX_CHUNKS_PER_SYMBOL:
+        symbol_limit = MAX_CHUNKS_PER_JAVA_FILE if path.endswith(".java") else MAX_CHUNKS_PER_SYMBOL
+        if range_key in seen_ranges or symbol_counts.get(symbol_key, 0) >= symbol_limit:
             continue
         selected.append(item)
         seen_ranges.add(range_key)

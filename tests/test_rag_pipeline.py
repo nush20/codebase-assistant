@@ -3,10 +3,10 @@ import rag_pipeline
 from rag_pipeline import _tokens, rerank_chunks
 
 
-def result(path, symbol, text, score, index):
+def result(path, symbol, text, score, index, unit_type="method"):
     chunk = CodeChunk(
         f"00000000-0000-0000-0000-0000000000{index:02d}", "repo", path, "Python",
-        text, index, index + 2, symbol, "method", index,
+        text, index, index + 2, symbol, unit_type, index,
     )
     return RetrievedChunk(chunk, score)
 
@@ -28,6 +28,20 @@ def test_reranker_limits_duplicate_symbol_windows():
     ranked = rerank_chunks("How does large work?", candidates, 5)
     assert sum(item.chunk.unit_name == "large" for item in ranked) == 1
     assert any(item.chunk.unit_name == "helper" for item in ranked)
+
+
+def test_reranker_allows_multiple_generic_file_windows():
+    candidates = [
+        result(
+            "AudioPlayer.java", "AudioPlayer.java", f"window {i}",
+            0.9 - i / 100, i, "line_window",
+        )
+        for i in range(1, 5)
+    ]
+
+    ranked = rerank_chunks("How does AudioPlayer work?", candidates, 5)
+
+    assert len(ranked) == 3
 
 
 def test_token_forms_match_natural_language_to_code_verbs():

@@ -5,7 +5,12 @@ from __future__ import annotations
 import ast
 import uuid
 
-from config import CHUNK_OVERLAP, CHUNK_WINDOW_SIZE
+from config import (
+    CHUNK_OVERLAP,
+    CHUNK_WINDOW_SIZE,
+    JAVA_CHUNK_OVERLAP,
+    JAVA_CHUNK_WINDOW_SIZE,
+)
 from models import CodeChunk, RepositoryFile
 
 
@@ -113,4 +118,8 @@ def chunk_python(file: RepositoryFile, window_size: int = CHUNK_WINDOW_SIZE,
 
 def chunk_file(file: RepositoryFile, window_size: int = CHUNK_WINDOW_SIZE,
                overlap: int = CHUNK_OVERLAP) -> list[CodeChunk]:
-    return chunk_python(file, window_size, overlap) if file.extension == ".py" else chunk_generic(file, window_size, overlap)
+    if file.extension == ".py":
+        return chunk_python(file, window_size, overlap)
+    if file.extension == ".java":
+        return chunk_generic(file, JAVA_CHUNK_WINDOW_SIZE, JAVA_CHUNK_OVERLAP)
+    return chunk_generic(file, window_size, overlap)

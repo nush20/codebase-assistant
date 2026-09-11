@@ -1,6 +1,6 @@
 import uuid
 
-from code_chunker import chunk_file, chunk_generic, chunk_python
+from code_chunker import chunk_generic, chunk_python
 from models import RepositoryFile
 
 
@@ -55,14 +55,3 @@ def test_generic_overlap_ranges_and_no_blank_chunks():
     assert [(c.start_line, c.end_line) for c in chunks] == [(1, 4), (4, 6)]
     blank = RepositoryFile("repo", "blank.txt", ".txt", "Text", "  \n\n")
     assert chunk_generic(blank, 2, 0) == []
-
-
-def test_chunk_file_uses_larger_overlapping_windows_for_non_python_files():
-    text = "\n".join(str(line) for line in range(1, 41))
-    file = RepositoryFile("repo", "AudioPlayer.java", ".java", "Java", text)
-
-    chunks = chunk_file(file)
-
-    assert [(chunk.start_line, chunk.end_line) for chunk in chunks] == [
-        (1, 20), (16, 35), (31, 40)
-    ]

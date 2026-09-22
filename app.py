@@ -16,7 +16,7 @@ EXAMPLE_REPOSITORIES = {
         "description": "A small automatic-differentiation engine and neural-network library.",
         "questions": (
             "How does Value.backward() calculate gradients?",
-            "How is multiplication differentiated?",
+            "How does Value.__mul__() propagate gradients to both operands?",
             "How does a neuron calculate its output?",
             "How does the MLP construct its layers?",
         ),
@@ -27,7 +27,7 @@ EXAMPLE_REPOSITORIES = {
         "description": "A compact GPT training and text-generation implementation.",
         "questions": (
             "How does causal self-attention prevent access to future tokens?",
-            "How does GPT calculate training loss?",
+            "How does GPT.forward() calculate training loss?",
             "How are new tokens generated using temperature and top-k sampling?",
             "How is the learning rate calculated using warmup and cosine decay?",
         ),
@@ -65,7 +65,13 @@ with st.sidebar:
         placeholder="https://github.com/pallets/flask.git",
         key="repo_input",
     )
-    top_k = st.number_input("Retrieved chunks", min_value=1, max_value=20, value=DEFAULT_TOP_K)
+    top_k = st.number_input(
+        "Ranked chunks",
+        min_value=1,
+        max_value=20,
+        value=DEFAULT_TOP_K,
+        help="Adjacent chunks from the same function may be added for complete context.",
+    )
     if st.button("Index Repository", type="primary", use_container_width=True):
         try:
             with st.spinner("Loading, chunking, embedding, and indexing…"):

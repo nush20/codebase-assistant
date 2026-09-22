@@ -1,6 +1,6 @@
 from models import CodeChunk, RetrievedChunk
 import rag_pipeline
-from rag_pipeline import _tokens, rerank_chunks
+from rag_pipeline import deduplicate_chunks, score_candidates, select_with_symbol_context
 
 
 def result(path, symbol, text, score, index, language="Python"):
@@ -11,26 +11,34 @@ def result(path, symbol, text, score, index, language="Python"):
     return RetrievedChunk(chunk, score)
 
 
-def test_exact_symbol_and_implementation_path_beat_semantic_docs_result():
+def test_exact_identifier_match_beats_higher_vector_similarity():
     candidates = [
         result("docs/commands.md", "docs/commands.md", "How commands work", 0.82, 1),
         result("typer/main.py", "Typer.command", "def command(self): pass", 0.60, 2),
     ]
-    ranked = rerank_chunks("How does `app.command()` work internally?", candidates, 2)
+    ranked = score_candidates("How does `Typer.command()` work?", candidates)
     assert ranked[0].chunk.unit_name == "Typer.command"
 
 
-def test_reranker_limits_duplicate_symbol_windows():
+def test_score_is_vector_plus_identifier_and_token_overlap():
+    candidate = result("main.py", "target", "def target(): pass", 0.5, 1)
+
+    ranked = score_candidates("`target()`", [candidate])
+
+    assert ranked[0].score == 1.0
+
+
+def test_deduplication_keeps_distinct_windows_from_the_same_symbol():
     candidates = [
         result("main.py", "large", f"window {i}", 0.9 - i / 100, i)
         for i in range(1, 5)
     ] + [result("other.py", "helper", "helper", 0.5, 5)]
-    ranked = rerank_chunks("How does large work?", candidates, 5)
-    assert sum(item.chunk.unit_name == "large" for item in ranked) == 1
+    ranked = deduplicate_chunks(score_candidates("How does large work?", candidates), 5)
+    assert sum(item.chunk.unit_name == "large" for item in ranked) == 4
     assert any(item.chunk.unit_name == "helper" for item in ranked)
 
 
-def test_reranker_keeps_multiple_notebook_style_script_windows():
+def test_deduplication_keeps_multiple_notebook_style_script_windows():
     candidates = [
         RetrievedChunk(
             CodeChunk(
@@ -43,34 +51,75 @@ def test_reranker_keeps_multiple_notebook_style_script_windows():
         for i in range(1, 4)
     ]
 
-    ranked = rerank_chunks("How is the analysis performed?", candidates, 3)
+    ranked = deduplicate_chunks(
+        score_candidates("How is the analysis performed?", candidates), 3
+    )
 
     assert len(ranked) == 3
 
 
-def test_token_forms_match_natural_language_to_code_verbs():
-    tokens = _tokens("requests were sent while parsing and building")
-    assert {"send", "parse", "build"} <= tokens
-
-
-def test_exact_short_symbol_beats_higher_semantic_cli_result():
+def test_deduplication_removes_repeated_text_even_with_different_ranges():
     candidates = [
-        result("typer/testing.py", "CliRunner", "CLI commands", 0.53, 1),
-        result("typer/main.py", "Typer.command", "def command(self): pass", 0.39, 2),
+        result("main.py", "first", "same implementation", 0.8, 1),
+        result("main.py", "second", "same implementation", 0.7, 5),
     ]
-    ranked = rerank_chunks("How are CLI commands registered?", candidates, 2)
-    assert ranked[0].chunk.unit_name == "Typer.command"
+
+    ranked = deduplicate_chunks(score_candidates("implementation", candidates), 2)
+
+    assert len(ranked) == 1
 
 
-def test_source_boost_applies_to_non_python_implementation_files():
+def test_symbol_context_keeps_top_k_then_appends_adjacent_windows():
+    candidates = [
+        result("model.py", "GPT.generate", "middle", 0.9, 20),
+        result("other.py", "helper", "helper", 0.8, 40),
+        result("model.py", "GPT.generate", "first", 0.7, 10),
+        result("model.py", "GPT.generate", "last", 0.6, 30),
+    ]
+
+    selected = select_with_symbol_context(candidates, 2)
+
+    assert [item.chunk.text for item in selected] == [
+        "middle", "helper", "first", "last",
+    ]
+
+
+def test_symbol_context_does_not_expand_module_windows():
+    candidates = [
+        RetrievedChunk(
+            CodeChunk(
+                f"00000000-0000-0000-0000-0000000000{i:02d}",
+                "repo", "script.py", "Python", f"step {i}", i, i + 2,
+                "script.py", "module_script", i,
+            ),
+            0.9 - i / 100,
+        )
+        for i in range(1, 4)
+    ]
+
+    selected = select_with_symbol_context(candidates, 2)
+
+    assert [item.chunk.text for item in selected] == ["step 1", "step 2"]
+
+
+def test_token_overlap_breaks_close_vector_similarity():
+    candidates = [
+        result("unrelated.py", "helper", "unrelated utility", 0.53, 1),
+        result("routing.py", "register", "register CLI commands", 0.50, 2),
+    ]
+    ranked = score_candidates("How are CLI commands registered?", candidates)
+    assert ranked[0].chunk.unit_name == "register"
+
+
+def test_scoring_has_no_source_file_preference():
     candidates = [
         result("docs/server.md", "startServer", "server implementation", 0.60, 1, "Markdown"),
         result("src/server.mjs", "startServer", "server implementation", 0.60, 2, "JavaScript Module"),
     ]
 
-    ranked = rerank_chunks("Where is the server implemented?", candidates, 2)
+    ranked = score_candidates("Where is the server implemented?", candidates)
 
-    assert ranked[0].chunk.file_path == "src/server.mjs"
+    assert ranked[0].chunk.file_path == "docs/server.md"
 
 
 def test_cloud_retrieval_sends_raw_question_without_local_embedding(monkeypatch):

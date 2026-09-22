@@ -2,7 +2,6 @@ streamlit==1.46.1
 fastapi==0.116.1
 uvicorn[standard]==0.35.0
 qdrant-client==1.16.1
-tree-sitter-language-pack==0.9.1
 google-genai==1.26.0
 python-dotenv==1.1.1
 pytest==8.4.1

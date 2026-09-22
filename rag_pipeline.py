@@ -5,24 +5,10 @@ import re
 
 from code_chunker import chunk_file
 from config import (
-    EXACT_IDENTIFIER_BOOST,
-    FILENAME_TOKEN_COVERAGE_BOOST,
-    IMPLEMENTATION_DOCS_PENALTY,
-    IMPLEMENTATION_SOURCE_BOOST,
-    IMPLEMENTATION_TEST_PENALTY,
-    MAX_CHUNKS_PER_SYMBOL,
+    IDENTIFIER_MATCH_WEIGHT,
     MIN_RETRIEVAL_CANDIDATES,
-    NONIMPLEMENTATION_DOCS_PENALTY,
-    NONIMPLEMENTATION_SOURCE_BOOST,
-    NONIMPLEMENTATION_TEST_PENALTY,
-    PARTIAL_IDENTIFIER_BOOST,
-    PRIVATE_DIRECTORY_PENALTY,
-    QUESTION_TOKEN_COVERAGE_BOOST,
     RETRIEVAL_CANDIDATE_MULTIPLIER,
-    SHORT_SYMBOL_BOOST,
-    SOURCE_CODE_EXTENSIONS,
-    TEXT_IDENTIFIER_BOOST,
-    UNIT_TOKEN_COVERAGE_BOOST,
+    TOKEN_OVERLAP_WEIGHT,
 )
 from embedder import embed_chunks, embed_question
 from errors import (
@@ -32,7 +18,7 @@ from errors import (
     RetrievalServiceError,
 )
 from llm_client import generate_answer
-from models import AnswerResult, IngestionResult
+from models import AnswerResult, IngestionResult, RetrievedChunk
 from repo_loader import load_repository
 from vector_store import vector_store
 
@@ -41,49 +27,21 @@ logger = logging.getLogger(__name__)
 _TOKEN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _CODE_IDENTIFIER_RE = re.compile(r"`([^`]+)`|\b([A-Za-z_][A-Za-z0-9_.]*)\s*\(")
 _STOP_WORDS = {"a", "an", "and", "are", "does", "how", "in", "is", "of", "the", "to", "what", "where", "which"}
-_IRREGULAR_TOKEN_FORMS = {
-    "built": "build",
-    "made": "make",
-    "sent": "send",
-}
-_IMPLEMENTATION_PHRASES = (
-    "class", "code", "convert", "created", "executed", "generated", "handled",
-    "implemented", "implementation", "integrate", "internally", "module", "parsed",
-    "processed", "registered", "where", "which module",
-)
-
-
-def _word_forms(token: str) -> set[str]:
-    """Return conservative forms for matching prose to code identifiers."""
-    forms = {token}
-    if token in _IRREGULAR_TOKEN_FORMS:
-        forms.add(_IRREGULAR_TOKEN_FORMS[token])
-    if len(token) > 5 and token.endswith("ing"):
-        stem = token[:-3]
-        forms.add(stem)
-        forms.add(stem + "e")
-        if len(stem) > 2 and stem[-1] == stem[-2]:
-            forms.add(stem[:-1])
-    if len(token) > 4 and token.endswith("ed"):
-        stem = token[:-2]
-        forms.add(stem)
-        forms.add(stem + "e")
-    return forms
+_CALLABLE_UNIT_TYPES = {"function", "async_function", "method", "async_method"}
+_MAX_CONTEXT_CHUNKS_PER_SYMBOL = 3
+_MAX_ADDITIONAL_CONTEXT_CHUNKS = 4
 
 
 def _tokens(value: str) -> set[str]:
-    expanded = set()
+    tokens = set()
     for raw_token in _TOKEN_RE.findall(value):
         pieces = [raw_token, *raw_token.split("_")]
         pieces.extend(re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z]|$)|\d+", raw_token))
         for piece in pieces:
             token = piece.lower()
             if token and token not in _STOP_WORDS:
-                for form in _word_forms(token):
-                    expanded.add(form)
-                    if len(form) > 3 and form.endswith("s") and not form.endswith("ss"):
-                        expanded.add(form[:-1])
-    return expanded
+                tokens.add(token)
+    return tokens
 
 
 def _identifiers(question: str) -> set[str]:
@@ -99,89 +57,87 @@ def _identifiers(question: str) -> set[str]:
     return identifiers
 
 
-def rerank_chunks(question: str, candidates: list, top_k: int):
-    """Rerank semantic candidates using code identifiers, paths, keywords, and diversity."""
+def score_candidates(question: str, candidates: list):
+    """Add only exact-identifier and token-overlap signals to vector similarity."""
     question_tokens = _tokens(question)
     identifiers = _identifiers(question)
-    question_lower = question.lower()
-    implementation_intent = any(phrase in question_lower for phrase in _IMPLEMENTATION_PHRASES)
     scored = []
     for item in candidates:
         chunk = item.chunk
         unit = chunk.unit_name.lower()
         short_unit = unit.rsplit(".", 1)[-1]
-        path = chunk.file_path.lower()
-        text_lower = chunk.text.lower()
-        score = item.score
-
-        for identifier in identifiers:
-            identifier_short = identifier.rsplit(".", 1)[-1]
-            if identifier in {unit, short_unit} or identifier_short in {unit, short_unit}:
-                score += EXACT_IDENTIFIER_BOOST
-            elif identifier in unit or identifier_short in unit:
-                score += PARTIAL_IDENTIFIER_BOOST
-            elif re.search(rf"\b{re.escape(identifier_short)}\b", text_lower):
-                score += TEXT_IDENTIFIER_BOOST
-
-        searchable_tokens = _tokens(f"{chunk.file_path} {chunk.unit_name} {chunk.text}")
-        unit_tokens = _tokens(chunk.unit_name)
-        short_symbol_tokens = _tokens(chunk.unit_name.rsplit(".", 1)[-1])
-        filename_tokens = _tokens(path.rsplit("/", 1)[-1].rsplit(".", 1)[0])
-        if question_tokens:
-            score += QUESTION_TOKEN_COVERAGE_BOOST * len(
-                question_tokens & searchable_tokens
-            ) / len(question_tokens)
-            score += UNIT_TOKEN_COVERAGE_BOOST * len(
-                question_tokens & unit_tokens
-            ) / max(1, len(unit_tokens))
-            score += FILENAME_TOKEN_COVERAGE_BOOST * len(
-                question_tokens & filename_tokens
-            ) / max(1, len(filename_tokens))
-            if len(short_symbol_tokens) == 1 and short_symbol_tokens <= question_tokens:
-                score += SHORT_SYMBOL_BOOST
-
-        is_docs = path.startswith(("docs/", "docs_src/")) or "/docs/" in path
-        is_test = path.startswith("tests/") or "/tests/" in path or path.startswith("test_")
-        is_source_code = any(path.endswith(extension) for extension in SOURCE_CODE_EXTENSIONS)
-        has_private_directory = any(
-            part.startswith("_") for part in path.split("/")[:-1]
+        identifier_match = any(
+            identifier in {unit, short_unit}
+            or identifier.rsplit(".", 1)[-1] in {unit, short_unit}
+            for identifier in identifiers
         )
-        if implementation_intent:
-            if is_source_code and not is_docs and not is_test:
-                score += IMPLEMENTATION_SOURCE_BOOST
-            if is_docs:
-                score -= IMPLEMENTATION_DOCS_PENALTY
-            if is_test:
-                score -= IMPLEMENTATION_TEST_PENALTY
-        else:
-            if is_source_code and not is_docs and not is_test:
-                score += NONIMPLEMENTATION_SOURCE_BOOST
-            if is_docs:
-                score -= NONIMPLEMENTATION_DOCS_PENALTY
-            if is_test:
-                score -= NONIMPLEMENTATION_TEST_PENALTY
-        if implementation_intent and has_private_directory:
-            score -= PRIVATE_DIRECTORY_PENALTY
-        scored.append((score, item))
+        searchable_tokens = _tokens(f"{chunk.file_path} {chunk.unit_name} {chunk.text}")
+        token_overlap = (
+            len(question_tokens & searchable_tokens) / len(question_tokens)
+            if question_tokens else 0.0
+        )
+        score = (
+            item.score
+            + IDENTIFIER_MATCH_WEIGHT * float(identifier_match)
+            + TOKEN_OVERLAP_WEIGHT * token_overlap
+        )
+        scored.append(RetrievedChunk(item.chunk, score))
+    return sorted(scored, key=lambda item: item.score, reverse=True)
 
+
+def deduplicate_chunks(scored_candidates: list, top_k: int):
+    """Remove exact duplicate ranges or text after ranking."""
     selected = []
-    symbol_counts: dict[tuple[str, str], int] = {}
     seen_ranges = set()
-    for _, item in sorted(scored, key=lambda pair: pair[0], reverse=True):
+    seen_text = set()
+    for item in scored_candidates:
         chunk = item.chunk
-        symbol_key = (chunk.file_path, chunk.unit_name)
         range_key = (chunk.file_path, chunk.start_line, chunk.end_line)
-        is_symbol_chunk = chunk.unit_type not in {"module_script", "line_window"}
-        if range_key in seen_ranges or (
-            is_symbol_chunk
-            and symbol_counts.get(symbol_key, 0) >= MAX_CHUNKS_PER_SYMBOL
-        ):
+        text_key = " ".join(chunk.text.split())
+        if range_key in seen_ranges or text_key in seen_text:
             continue
         selected.append(item)
         seen_ranges.add(range_key)
-        symbol_counts[symbol_key] = symbol_counts.get(symbol_key, 0) + 1
+        seen_text.add(text_key)
         if len(selected) == top_k:
             break
+    return selected
+
+
+def select_with_symbol_context(ranked_candidates: list, top_k: int):
+    """Keep the top-k ranking intact, then append nearby callable windows."""
+    if top_k < 1:
+        return []
+    unique_candidates = deduplicate_chunks(ranked_candidates, len(ranked_candidates))
+    by_symbol: dict[tuple[str, str], list[RetrievedChunk]] = {}
+    for item in unique_candidates:
+        chunk = item.chunk
+        if chunk.unit_type in _CALLABLE_UNIT_TYPES:
+            by_symbol.setdefault((chunk.file_path, chunk.unit_name), []).append(item)
+    for chunks in by_symbol.values():
+        chunks.sort(key=lambda item: item.chunk.start_line)
+
+    selected = unique_candidates[:top_k]
+    selected_ids = {item.chunk.chunk_id for item in selected}
+    additional = 0
+    for seed in selected[:top_k]:
+        symbol_key = (seed.chunk.file_path, seed.chunk.unit_name)
+        symbol_chunks = by_symbol.get(symbol_key, [])
+        if len(symbol_chunks) > 1:
+            neighbours = sorted(
+                (item for item in symbol_chunks if item.chunk.chunk_id != seed.chunk.chunk_id),
+                key=lambda item: abs(item.chunk.start_line - seed.chunk.start_line),
+            )[: _MAX_CONTEXT_CHUNKS_PER_SYMBOL - 1]
+        else:
+            neighbours = []
+        for item in neighbours:
+            if item.chunk.chunk_id in selected_ids:
+                continue
+            selected.append(item)
+            selected_ids.add(item.chunk.chunk_id)
+            additional += 1
+            if additional == _MAX_ADDITIONAL_CONTEXT_CHUNKS:
+                return selected
     return selected
 
 
@@ -227,7 +183,8 @@ def retrieve_chunks(repo_name: str, question: str, top_k: int):
     except Exception as exc:
         logger.exception("Retrieval failed for repository %s", repo_name)
         raise RetrievalServiceError("Code retrieval failed.") from exc
-    results = rerank_chunks(question, candidates, top_k)
+    scored_candidates = score_candidates(question, candidates)
+    results = select_with_symbol_context(scored_candidates, top_k)
     logger.info("Retrieval completed for %s: chunks=%d", repo_name, len(results))
     return results
 

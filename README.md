@@ -8,10 +8,11 @@ Repository parsing, chunking, embedding generation, and retrieval are performed 
 
 ## Features
 
-- Python AST chunking plus Tree-sitter symbol-aware chunking for supported non-Python languages
+- Python AST chunking with generic line-window chunking for other file types
 - Semantic code retrieval using MiniLM embeddings and Qdrant
 - Grounded answer generation using Google Gemini
-- Repository-aware retrieval heuristics to improve retrieval quality
+- Transparent ranking using vector similarity, exact identifier matching, and token overlap
+- Adjacent same-symbol context expansion for functions split across multiple chunks
 - Retrieval evaluation using Hit@k, Recall@k, Precision@k, and MRR
 - Automated unit tests
 
@@ -26,7 +27,7 @@ Repository
 Repository Loader
     │
     ▼
-Python AST / Tree-sitter Chunker
+Python AST / Line-window Chunker
     │
     ▼
 MiniLM Embeddings
@@ -156,7 +157,7 @@ codebase-assistant/
 ## Future Improvements
 
 - Persistent vector storage
-- Add more Tree-sitter language mappings
+- Add more language-aware chunkers
 - Hybrid retrieval
 - Incremental indexing
 

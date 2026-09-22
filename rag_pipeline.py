@@ -20,6 +20,7 @@ from config import (
     QUESTION_TOKEN_COVERAGE_BOOST,
     RETRIEVAL_CANDIDATE_MULTIPLIER,
     SHORT_SYMBOL_BOOST,
+    SOURCE_CODE_EXTENSIONS,
     TEXT_IDENTIFIER_BOOST,
     UNIT_TOKEN_COVERAGE_BOOST,
 )
@@ -141,18 +142,19 @@ def rerank_chunks(question: str, candidates: list, top_k: int):
 
         is_docs = path.startswith(("docs/", "docs_src/")) or "/docs/" in path
         is_test = path.startswith("tests/") or "/tests/" in path or path.startswith("test_")
+        is_source_code = any(path.endswith(extension) for extension in SOURCE_CODE_EXTENSIONS)
         has_private_directory = any(
             part.startswith("_") for part in path.split("/")[:-1]
         )
         if implementation_intent:
-            if path.endswith(".py") and not is_docs and not is_test:
+            if is_source_code and not is_docs and not is_test:
                 score += IMPLEMENTATION_SOURCE_BOOST
             if is_docs:
                 score -= IMPLEMENTATION_DOCS_PENALTY
             if is_test:
                 score -= IMPLEMENTATION_TEST_PENALTY
         else:
-            if path.endswith(".py") and not is_docs and not is_test:
+            if is_source_code and not is_docs and not is_test:
                 score += NONIMPLEMENTATION_SOURCE_BOOST
             if is_docs:
                 score -= NONIMPLEMENTATION_DOCS_PENALTY
@@ -169,7 +171,11 @@ def rerank_chunks(question: str, candidates: list, top_k: int):
         chunk = item.chunk
         symbol_key = (chunk.file_path, chunk.unit_name)
         range_key = (chunk.file_path, chunk.start_line, chunk.end_line)
-        if range_key in seen_ranges or symbol_counts.get(symbol_key, 0) >= MAX_CHUNKS_PER_SYMBOL:
+        is_symbol_chunk = chunk.unit_type not in {"module_script", "line_window"}
+        if range_key in seen_ranges or (
+            is_symbol_chunk
+            and symbol_counts.get(symbol_key, 0) >= MAX_CHUNKS_PER_SYMBOL
+        ):
             continue
         selected.append(item)
         seen_ranges.add(range_key)

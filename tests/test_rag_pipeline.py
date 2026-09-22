@@ -3,9 +3,9 @@ import rag_pipeline
 from rag_pipeline import _tokens, rerank_chunks
 
 
-def result(path, symbol, text, score, index):
+def result(path, symbol, text, score, index, language="Python"):
     chunk = CodeChunk(
-        f"00000000-0000-0000-0000-0000000000{index:02d}", "repo", path, "Python",
+        f"00000000-0000-0000-0000-0000000000{index:02d}", "repo", path, language,
         text, index, index + 2, symbol, "method", index,
     )
     return RetrievedChunk(chunk, score)
@@ -30,6 +30,24 @@ def test_reranker_limits_duplicate_symbol_windows():
     assert any(item.chunk.unit_name == "helper" for item in ranked)
 
 
+def test_reranker_keeps_multiple_notebook_style_script_windows():
+    candidates = [
+        RetrievedChunk(
+            CodeChunk(
+                f"00000000-0000-0000-0000-0000000000{i:02d}",
+                "repo", "analysis.py", "Python", f"step {i}", i * 10,
+                i * 10 + 9, "analysis.py", "module_script", i,
+            ),
+            0.9 - i / 100,
+        )
+        for i in range(1, 4)
+    ]
+
+    ranked = rerank_chunks("How is the analysis performed?", candidates, 3)
+
+    assert len(ranked) == 3
+
+
 def test_token_forms_match_natural_language_to_code_verbs():
     tokens = _tokens("requests were sent while parsing and building")
     assert {"send", "parse", "build"} <= tokens
@@ -42,6 +60,17 @@ def test_exact_short_symbol_beats_higher_semantic_cli_result():
     ]
     ranked = rerank_chunks("How are CLI commands registered?", candidates, 2)
     assert ranked[0].chunk.unit_name == "Typer.command"
+
+
+def test_source_boost_applies_to_non_python_implementation_files():
+    candidates = [
+        result("docs/server.md", "startServer", "server implementation", 0.60, 1, "Markdown"),
+        result("src/server.mjs", "startServer", "server implementation", 0.60, 2, "JavaScript Module"),
+    ]
+
+    ranked = rerank_chunks("Where is the server implemented?", candidates, 2)
+
+    assert ranked[0].chunk.file_path == "src/server.mjs"
 
 
 def test_cloud_retrieval_sends_raw_question_without_local_embedding(monkeypatch):

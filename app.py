@@ -9,17 +9,61 @@ from config import DEFAULT_TOP_K
 load_dotenv()
 st.set_page_config(page_title="Codebase Assistant", page_icon="🔎", layout="wide")
 
+EXAMPLE_REPOSITORIES = {
+    "micrograd": {
+        "name": "micrograd",
+        "url": "https://github.com/karpathy/micrograd.git",
+        "description": "A small automatic-differentiation engine and neural-network library.",
+        "questions": (
+            "How does Value.backward() calculate gradients?",
+            "How is multiplication differentiated?",
+            "How does a neuron calculate its output?",
+            "How does the MLP construct its layers?",
+        ),
+    },
+    "nanogpt": {
+        "name": "nanoGPT",
+        "url": "https://github.com/karpathy/nanoGPT.git",
+        "description": "A compact GPT training and text-generation implementation.",
+        "questions": (
+            "How does causal self-attention prevent access to future tokens?",
+            "How does GPT calculate training loss?",
+            "How are new tokens generated using temperature and top-k sampling?",
+            "How is the learning rate calculated using warmup and cosine decay?",
+        ),
+    },
+}
+
 for key, default in {
-    "repo_name": None, "chat_history": [], "last_ingestion": None, "retrieved_sources": []
+    "repo_name": None,
+    "chat_history": [],
+    "last_ingestion": None,
+    "retrieved_sources": [],
+    "repo_input": "",
+    "selected_example": None,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
 
 with st.sidebar:
     st.title("Codebase Assistant")
+
+    with st.expander("Try an example", expanded=not st.session_state.repo_name):
+        for example_id, example in EXAMPLE_REPOSITORIES.items():
+            st.markdown(f"**{example['name']}**")
+            st.caption(example["description"])
+            if st.button(
+                f"Use {example['name']}",
+                key=f"use_example_{example_id}",
+                use_container_width=True,
+            ):
+                st.session_state.repo_input = example["url"]
+                st.session_state.selected_example = example_id
+
     repo_path = st.text_input(
         "Repository path or public GitHub URL",
         placeholder="https://github.com/pallets/flask.git",
+        key="repo_input",
     )
     top_k = st.number_input("Retrieved chunks", min_value=1, max_value=20, value=DEFAULT_TOP_K)
     if st.button("Index Repository", type="primary", use_container_width=True):
@@ -29,6 +73,15 @@ with st.sidebar:
             st.session_state.repo_name = result["repo_name"]
             st.session_state.last_ingestion = result
             st.session_state.chat_history = []
+            st.session_state.selected_example = next(
+                (
+                    example_id
+                    for example_id, example in EXAMPLE_REPOSITORIES.items()
+                    if repo_path.rstrip("/").removesuffix(".git").lower()
+                    == example["url"].rstrip("/").removesuffix(".git").lower()
+                ),
+                None,
+            )
             st.success("Repository indexed.")
         except BackendError as exc:
             st.error(str(exc))
@@ -46,6 +99,13 @@ with st.sidebar:
 st.title("Ask questions about a codebase")
 st.write("Index a repository, then ask grounded questions. Answers cite the retrieved files, symbols, and line ranges.")
 
+selected_example = EXAMPLE_REPOSITORIES.get(st.session_state.selected_example)
+if selected_example and st.session_state.repo_name:
+    with st.expander(f"Suggested questions for {selected_example['name']}", expanded=True):
+        for index, example_question in enumerate(selected_example["questions"]):
+            if st.button(example_question, key=f"example_question_{index}"):
+                st.session_state.question_input = example_question
+
 for message in st.session_state.chat_history:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
@@ -58,7 +118,11 @@ for message in st.session_state.chat_history:
                     )
                     st.code(item["text"], language=item["language"].lower())
 
-question = st.chat_input("Ask about the indexed repository…", disabled=not st.session_state.repo_name)
+question = st.chat_input(
+    "Ask about the indexed repository…",
+    disabled=not st.session_state.repo_name,
+    key="question_input",
+)
 if question:
     st.session_state.chat_history.append({"role": "user", "content": question})
     with st.chat_message("user"):

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from config import (
     IGNORED_DIRECTORIES,
+    IGNORED_FILES,
     LANGUAGE_BY_EXTENSION,
     MAX_FILE_SIZE_BYTES,
     MAX_REPOSITORY_FILES,
@@ -42,7 +43,11 @@ def load_repository(
         for name in sorted(names):
             path = Path(current) / name
             extension = path.suffix.lower()
-            if name.startswith(".") or extension not in SUPPORTED_EXTENSIONS:
+            if (
+                name.startswith(".")
+                or name in IGNORED_FILES
+                or extension not in SUPPORTED_EXTENSIONS
+            ):
                 result.skipped_count += 1
                 continue
             try:

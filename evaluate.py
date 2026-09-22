@@ -13,18 +13,28 @@ from llm_client import generate_answer
 from rag_pipeline import ingest_repo, retrieve_chunks
 
 
-def chunk_matches_expected(chunk: Any, expected: dict[str, str]) -> bool:
-    """Match a chunk against an expected file and optional symbol."""
+def chunk_matches_expected(chunk: Any, expected: dict[str, Any]) -> bool:
+    """Match a chunk against an expected file, symbol, and optional line range."""
     if chunk.file_path != expected["file_path"]:
         return False
     symbol = expected.get("symbol")
-    return not symbol or chunk.unit_name == symbol or chunk.unit_name.startswith(f"{symbol}.")
+    if symbol and not (
+        chunk.unit_name == symbol or chunk.unit_name.startswith(f"{symbol}.")
+    ):
+        return False
+    expected_start = expected.get("line_start")
+    expected_end = expected.get("line_end")
+    if expected_start is not None and chunk.end_line < expected_start:
+        return False
+    if expected_end is not None and chunk.start_line > expected_end:
+        return False
+    return True
 
 
 def score_retrieval(
     retrieved: list[Any],
-    expected_sources: list[dict[str, str]],
-    accepted_sources: list[dict[str, str]] | None = None,
+    expected_sources: list[dict[str, Any]],
+    accepted_sources: list[dict[str, Any]] | None = None,
 ) -> dict[str, float | int]:
     """Score primary-source recall while accepting other valid supporting evidence."""
     accepted_sources = accepted_sources or []

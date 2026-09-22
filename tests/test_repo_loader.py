@@ -20,3 +20,18 @@ def test_rejects_invalid_path(tmp_path):
         assert "does not exist" in str(exc)
     else:
         raise AssertionError("Expected ValueError")
+
+
+def test_loads_web_markup_and_styles_but_skips_generated_lockfiles(tmp_path):
+    (tmp_path / "index.html").write_text("<main>Hello</main>\n", encoding="utf-8")
+    (tmp_path / "styles.css").write_text("main { color: red; }\n", encoding="utf-8")
+    (tmp_path / "theme.scss").write_text("$color: red;\n", encoding="utf-8")
+    (tmp_path / "package-lock.json").write_text('{"lockfileVersion": 3}', encoding="utf-8")
+
+    result = load_repository(str(tmp_path))
+
+    assert [file.file_path for file in result.files] == [
+        "index.html", "styles.css", "theme.scss",
+    ]
+    assert [file.language for file in result.files] == ["HTML", "CSS", "SCSS"]
+    assert result.skipped_count == 1

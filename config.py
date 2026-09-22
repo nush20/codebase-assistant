@@ -11,6 +11,8 @@ EMBEDDING_DIMENSION = 384
 EMBEDDING_BATCH_SIZE = 32
 CHUNK_WINDOW_SIZE = 10
 CHUNK_OVERLAP = 0
+TREE_SITTER_UNIT_WINDOW_SIZE = 10
+TREE_SITTER_UNIT_OVERLAP = 0
 MAX_FILE_SIZE_BYTES = 1_000_000
 MAX_REPOSITORY_FILES = int(os.getenv("MAX_REPOSITORY_FILES", "2000"))
 MAX_REPOSITORY_SIZE_BYTES = int(os.getenv("MAX_REPOSITORY_SIZE_BYTES", "50000000"))
@@ -52,17 +54,31 @@ IGNORED_DIRECTORIES = frozenset({
     "target", "vendor",
 })
 
+IGNORED_FILES = frozenset({
+    "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock",
+    "bun.lock", "bun.lockb",
+})
+
 SUPPORTED_EXTENSIONS = frozenset({
-    ".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".cpp", ".cc",
-    ".c", ".h", ".hpp", ".swift", ".go", ".rs", ".md", ".txt",
+    ".py", ".js", ".mjs", ".jsx", ".ts", ".tsx", ".java", ".cpp", ".cc",
+    ".c", ".h", ".hpp", ".swift", ".go", ".rs", ".html", ".css",
+    ".scss", ".sass", ".md", ".txt",
     ".json", ".yaml", ".yml", ".toml",
 })
 
+SOURCE_CODE_EXTENSIONS = frozenset({
+    ".py", ".js", ".mjs", ".jsx", ".ts", ".tsx", ".java", ".cpp", ".cc",
+    ".c", ".h", ".hpp", ".swift", ".go", ".rs", ".html", ".css",
+    ".scss", ".sass",
+})
+
 LANGUAGE_BY_EXTENSION = {
-    ".py": "Python", ".js": "JavaScript", ".jsx": "JavaScript JSX",
+    ".py": "Python", ".js": "JavaScript", ".mjs": "JavaScript Module",
+    ".jsx": "JavaScript JSX",
     ".ts": "TypeScript", ".tsx": "TypeScript TSX", ".java": "Java",
     ".cpp": "C++", ".cc": "C++", ".c": "C", ".h": "C/C++ Header",
     ".hpp": "C++ Header", ".swift": "Swift", ".go": "Go", ".rs": "Rust",
+    ".html": "HTML", ".css": "CSS", ".scss": "SCSS", ".sass": "Sass",
     ".md": "Markdown", ".txt": "Text", ".json": "JSON", ".yaml": "YAML",
     ".yml": "YAML", ".toml": "TOML",
 }

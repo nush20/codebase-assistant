@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import json
 
 import evaluate as evaluation_module
-from evaluate import evaluate, score_retrieval
+from evaluate import chunk_matches_expected, evaluate, score_retrieval
 from models import IngestionResult
 
 
@@ -41,6 +41,17 @@ def test_class_expectation_matches_qualified_method_chunk():
         [{"file_path": "typer/main.py", "symbol": "Typer"}],
     )
     assert scores["hit"] == 1
+
+
+def test_expected_line_range_must_overlap_retrieved_chunk():
+    chunk = item("main.py", "target").chunk
+
+    assert chunk_matches_expected(
+        chunk, {"file_path": "main.py", "symbol": "target", "line_start": 2, "line_end": 4}
+    )
+    assert not chunk_matches_expected(
+        chunk, {"file_path": "main.py", "symbol": "target", "line_start": 10, "line_end": 12}
+    )
 
 
 def test_accepted_alternative_counts_as_hit_but_not_primary_recall():

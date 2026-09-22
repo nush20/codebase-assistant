@@ -104,7 +104,7 @@ if selected_example and st.session_state.repo_name:
     with st.expander(f"Suggested questions for {selected_example['name']}", expanded=True):
         for index, example_question in enumerate(selected_example["questions"]):
             if st.button(example_question, key=f"example_question_{index}"):
-                st.session_state.question_input = example_question
+                st.session_state.pending_question = example_question
 
 for message in st.session_state.chat_history:
     with st.chat_message(message["role"]):
@@ -121,8 +121,9 @@ for message in st.session_state.chat_history:
 question = st.chat_input(
     "Ask about the indexed repository…",
     disabled=not st.session_state.repo_name,
-    key="question_input",
 )
+if not question:
+    question = st.session_state.pop("pending_question", None)
 if question:
     st.session_state.chat_history.append({"role": "user", "content": question})
     with st.chat_message("user"):

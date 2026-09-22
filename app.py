@@ -21,15 +21,15 @@ EXAMPLE_REPOSITORIES = {
             "How does the MLP construct its layers?",
         ),
     },
-    "nanogpt": {
-        "name": "nanoGPT",
-        "url": "https://github.com/karpathy/nanoGPT.git",
-        "description": "A compact GPT training and text-generation implementation.",
+    "schedule": {
+        "name": "schedule",
+        "url": "https://github.com/dbader/schedule.git",
+        "description": "A lightweight Python library for running functions periodically.",
         "questions": (
-            "How does causal self-attention prevent access to future tokens?",
-            "How does GPT.forward() calculate training loss?",
-            "How are new tokens generated using temperature and top-k sampling?",
-            "How is the learning rate calculated using warmup and cosine decay?",
+            "How does Scheduler.every() create a new job?",
+            "How does Scheduler.run_pending() decide which jobs should run?",
+            "How does Job.do() register a function for execution?",
+            "How does Job.run() execute a job and schedule its next run?",
         ),
     },
 }

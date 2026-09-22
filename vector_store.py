@@ -47,12 +47,13 @@ class VectorStore:
                 vectors_config=models.VectorParams(size=EMBEDDING_DIMENSION, distance=models.Distance.COSINE),
             )
         if self.cloud_inference and not self._payload_index_ready:
-            self.client.create_payload_index(
-                collection_name=self.collection_name,
-                field_name="repo_name",
-                field_schema=models.PayloadSchemaType.KEYWORD,
-                wait=True,
-            )
+            for field_name in ("repo_name", "file_path", "unit_name"):
+                self.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name=field_name,
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                    wait=True,
+                )
             self._payload_index_ready = True
 
     def upsert_chunks(

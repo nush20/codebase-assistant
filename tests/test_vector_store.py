@@ -81,12 +81,15 @@ def test_cloud_inference_sends_chunk_text_and_query_to_qdrant():
     assert client.upserted[0].vector.model == "sentence-transformers/all-MiniLM-L6-v2"
     assert isinstance(client.query, models.Document)
     assert client.query.text == "Where is the example?"
-    assert client.payload_indexes == [{
-        "collection_name": "cloud_chunks",
-        "field_name": "repo_name",
-        "field_schema": models.PayloadSchemaType.KEYWORD,
-        "wait": True,
-    }]
+    assert [item["field_name"] for item in client.payload_indexes] == [
+        "repo_name", "file_path", "unit_name",
+    ]
+    assert all(
+        item["collection_name"] == "cloud_chunks"
+        and item["field_schema"] == models.PayloadSchemaType.KEYWORD
+        and item["wait"] is True
+        for item in client.payload_indexes
+    )
 
 
 def test_local_store_requires_explicit_embeddings():

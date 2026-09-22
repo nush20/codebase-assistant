@@ -180,11 +180,28 @@ def retrieve_chunks(repo_name: str, question: str, top_k: int):
     try:
         query = question if vector_store.cloud_inference else embed_question(question)
         candidates = vector_store.search(query, repo_name, candidate_k)
+        scored_candidates = score_candidates(question, candidates)
+        primary_candidates = deduplicate_chunks(scored_candidates, top_k)
+        context_candidates = []
+        loaded_symbols = set()
+        for item in primary_candidates:
+            chunk = item.chunk
+            symbol_key = (chunk.file_path, chunk.unit_name)
+            if chunk.unit_type not in _CALLABLE_UNIT_TYPES or symbol_key in loaded_symbols:
+                continue
+            loaded_symbols.add(symbol_key)
+            context_candidates.extend(
+                RetrievedChunk(context.chunk, item.score)
+                for context in vector_store.get_symbol_chunks(
+                    repo_name, chunk.file_path, chunk.unit_name
+                )
+            )
     except Exception as exc:
         logger.exception("Retrieval failed for repository %s", repo_name)
         raise RetrievalServiceError("Code retrieval failed.") from exc
-    scored_candidates = score_candidates(question, candidates)
-    results = select_with_symbol_context(scored_candidates, top_k)
+    results = select_with_symbol_context(
+        [*scored_candidates, *context_candidates], top_k
+    )
     logger.info("Retrieval completed for %s: chunks=%d", repo_name, len(results))
     return results
 

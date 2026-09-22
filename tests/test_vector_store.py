@@ -30,6 +30,24 @@ def test_insert_search_filter_count_and_clear():
     assert store.count_repository_chunks("repo-b") == 1
 
 
+def test_get_symbol_chunks_returns_all_windows_in_source_order():
+    store = VectorStore(QdrantClient(":memory:"), "symbol_chunks")
+    chunks = [
+        CodeChunk(
+            f"00000000-0000-0000-0000-0000000000{index:02d}",
+            "repo", "model.py", "Python", f"window {index}", start, start + 9,
+            "GPT.generate", "method", index,
+        )
+        for index, start in ((1, 21), (2, 1), (3, 11))
+    ]
+    store.upsert_chunks(chunks, [vector(index) for index in range(3)])
+
+    results = store.get_symbol_chunks("repo", "model.py", "GPT.generate")
+
+    assert [item.chunk.start_line for item in results] == [1, 11, 21]
+    assert all(item.chunk.unit_name == "GPT.generate" for item in results)
+
+
 class CloudInferenceClient:
     def __init__(self):
         self.upserted = []

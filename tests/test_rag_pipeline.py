@@ -139,3 +139,27 @@ def test_cloud_retrieval_sends_raw_question_without_local_embedding(monkeypatch)
 
     assert rag_pipeline.retrieve_chunks("repo", "Where is routing?", 6) == []
     assert recorded == {"query": "Where is routing?", "repo_name": "repo", "top_k": 100}
+
+
+def test_retrieval_fetches_split_symbol_windows_outside_semantic_candidates(monkeypatch):
+    seed = result("model.py", "GPT.generate", "def generate():", 0.8, 10)
+    continuation = result(
+        "model.py", "GPT.generate", "logits = logits / temperature", 0.0, 20
+    )
+    monkeypatch.setattr(rag_pipeline.vector_store, "cloud_inference", True)
+    monkeypatch.setattr(
+        rag_pipeline.vector_store, "search", lambda *_args, **_kwargs: [seed]
+    )
+    monkeypatch.setattr(
+        rag_pipeline.vector_store,
+        "get_symbol_chunks",
+        lambda *_args, **_kwargs: [seed, continuation],
+    )
+
+    retrieved = rag_pipeline.retrieve_chunks(
+        "repo", "How does GPT.generate() use temperature?", 1
+    )
+
+    assert [item.chunk.text for item in retrieved] == [
+        "def generate():", "logits = logits / temperature",
+    ]

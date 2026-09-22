@@ -104,6 +104,40 @@ class VectorStore:
             results.append(RetrievedChunk(chunk, float(hit.score)))
         return results
 
+    def get_symbol_chunks(
+        self, repo_name: str, file_path: str, unit_name: str
+    ) -> list[RetrievedChunk]:
+        """Load every stored window for one symbol without semantic filtering."""
+        self.create_collection_if_needed()
+        records, _ = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=models.Filter(must=[
+                models.FieldCondition(
+                    key="repo_name", match=models.MatchValue(value=repo_name)
+                ),
+                models.FieldCondition(
+                    key="file_path", match=models.MatchValue(value=file_path)
+                ),
+                models.FieldCondition(
+                    key="unit_name", match=models.MatchValue(value=unit_name)
+                ),
+            ]),
+            limit=64,
+            with_payload=True,
+            with_vectors=False,
+        )
+        results = []
+        for record in records:
+            payload = record.payload or {}
+            chunk = CodeChunk(
+                str(record.id), payload["repo_name"], payload["file_path"],
+                payload["language"], payload["text"], payload["start_line"],
+                payload["end_line"], payload["unit_name"], payload["unit_type"],
+                payload["chunk_index"],
+            )
+            results.append(RetrievedChunk(chunk, 0.0))
+        return sorted(results, key=lambda item: item.chunk.start_line)
+
     def clear_repository(self, repo_name: str) -> None:
         self.create_collection_if_needed()
         self.client.delete(self.collection_name, points_selector=models.FilterSelector(filter=models.Filter(
